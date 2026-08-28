@@ -1,0 +1,44 @@
+- dialog "Type":
+  - heading "Type" [level=2]
+  - button "Close":
+    - img
+  - radiogroup "Type":
+    - radio "新朋友 P1-P2" [checked]
+    - radio "新天地 P3-P4"
+    - radio "新列车 P5-P6"
+    - radio "好朋友 P1-P2"
+    - radio "知识画报 P3-P4"
+    - radio "知识报 P5-P6"
+  - heading "Generate content" [level=3]
+  - radiogroup "Generate content":
+    - radio "Story" [checked]
+    - radio "Practice"
+  - heading "Grade" [level=3]
+  - radiogroup "Grade":
+    - radio "P1"
+    - radio "P1高" [checked]
+    - radio "P2"
+    - radio "P2高"
+  - heading "Lesson" [level=3]
+  - radiogroup "Lesson":
+    - radio "1" [checked]
+    - radio "2"
+    - radio "3"
+    - radio "4"
+    - radio "5"
+    - radio "6"
+    - radio "7"
+    - radio "8"
+    - radio "9"
+    - radio "10"
+    - radio "11"
+    - radio "12"
+    - radio "13"
+    - radio "14"
+    - radio "15"
+    - radio "16"
+    - radio "17"
+    - radio "18"
+    - radio "19"
+  - button "Cancel"
+  - button "Confirm"

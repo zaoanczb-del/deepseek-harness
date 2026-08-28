@@ -11,7 +11,7 @@ import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
-import type { ReplayOverrideDoc } from '@deepseek-ai/dsh-llm-replay'
+import type { ReplayEntry, ReplayOverrideDoc } from '@deepseek-ai/dsh-llm-replay'
 import {
   assertFixtureInventory,
   captureStableAria,
@@ -25,6 +25,17 @@ import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './suppor
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/skill-user-invoke', import.meta.url))
 const UI_EXPECTED = join(SNAPSHOT_DIR, 'ui.expected.md')
+const AUTHORING_EXPECTED = join(SNAPSHOT_DIR, 'authoring.expected.md')
+const PUBLICATION_SKILL_EXPECTED = join(SNAPSHOT_DIR, 'publication-skill.expected.md')
+const PRACTICE_SKILL_EXPECTED = join(SNAPSHOT_DIR, 'practice-skill.expected.md')
+const PUBLICATION_SKILL_DIR = fileURLToPath(new URL(
+  '../../../packages/extensions/authoring/skills/knowledge-pictorial-story',
+  import.meta.url,
+))
+const PRACTICE_SKILL_DIR = fileURLToPath(new URL(
+  '../../../packages/extensions/authoring/skills/practice-bian-zi-ce-yan',
+  import.meta.url,
+))
 const MODE = webSnapshotMode()
 
 const SKILL_NAME = 'user-invoke-demo'
@@ -46,7 +57,7 @@ async function seedUserOnlySkill(workspaceCwd: string): Promise<void> {
   ].join('\n'))
 }
 
-const REPLAY: ReplayOverrideDoc = [{
+const REPLAY_ENTRY: ReplayEntry = {
   kind: 'chunks',
   chunks: [
     { type: 'block-start', index: 0, blockType: 'text' },
@@ -55,7 +66,8 @@ const REPLAY: ReplayOverrideDoc = [{
     { type: 'usage', usage: { inputTokens: 256, outputTokens: 16 } },
     { type: 'finish', reason: { kind: 'stop' } },
   ],
-}]
+}
+const REPLAY: ReplayOverrideDoc = [REPLAY_ENTRY, REPLAY_ENTRY, REPLAY_ENTRY]
 
 describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation through the composer', () => {
   let scaffold: WebScaffold
@@ -144,7 +156,115 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
     expect(tripwire.warnings).toEqual([])
   }, 60_000)
 
+  it('composes an authoring invocation with the selected Singapore Chinese lesson', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-authoring-selector'))
+    const composer = page.locator('textarea:enabled').last()
+    await composer.fill('')
+    const trigger = page.getByRole('button', { name: 'Select content' })
+    await trigger.waitFor({ timeout: 15_000 })
+    await trigger.click()
+
+    const dialog = page.getByRole('dialog', { name: 'Type' })
+    await dialog.waitFor({ timeout: 10_000 })
+    await dialog.getByRole('radio', { name: /新朋友/ }).click()
+    await dialog.getByRole('radio', { name: 'Story' }).click()
+    await dialog.getByRole('radio', { name: 'P1高' }).click()
+    await dialog.getByRole('heading', { name: 'Lesson' }).waitFor()
+    await dialog.getByRole('radio', { name: '1', exact: true }).click()
+
+    const snapshot = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
+    await compareOrRefreshGolden(AUTHORING_EXPECTED, snapshot, MODE)
+    expect(snapshot).toContain('heading "Generate content"')
+    expect(snapshot).toContain('heading "Grade"')
+    expect(snapshot).toContain('heading "Lesson"')
+    expect(snapshot).toContain('radio "P1高" [checked]')
+    expect(snapshot).toContain('radio "1" [checked]')
+    expect(snapshot).not.toContain('radio "P3"')
+
+    await dialog.getByRole('button', { name: 'Confirm' }).click()
+    await dialog.waitFor({ state: 'detached', timeout: 10_000 })
+    expect(await composer.inputValue()).toMatch(/^\/story 帮我编写 P1高年级第一课的故事\n本课生字：.+\n本课生词：.+$/)
+  }, 60_000)
+
+  it('injects only the selected publication Markdown skill', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-publication-story-skill'))
+    const composer = page.locator('textarea:enabled').last()
+    await composer.fill('')
+    await page.getByRole('button', { name: 'Select content' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Type' })
+    await dialog.getByRole('radio', { name: /知识画报/ }).click()
+    await dialog.getByRole('radio', { name: '动物寓言' }).click()
+    await dialog.getByRole('button', { name: 'Confirm' }).click()
+    await dialog.waitFor({ state: 'detached', timeout: 10_000 })
+    expect(await composer.inputValue())
+      .toBe('/knowledge-pictorial-story 请编写一篇“动物寓言”的故事\n故事主题：分享精神')
+
+    const settled = scaffold.whenTurnSettled()
+    await composer.press('Enter')
+    const injectionRow = page.getByRole('button', { name: 'Context injection knowledge-pictorial-story' })
+    await injectionRow.waitFor({ timeout: 15_000 })
+    await injectionRow.click()
+    const injectionBody = page
+      .locator('[data-context-injection-body]')
+      .filter({ hasText: '<skill_content name="knowledge-pictorial-story">' })
+    await injectionBody.waitFor({ timeout: 10_000 })
+    const snapshot = (await captureStableAria(page, '[data-context-injection-body]', scaffold.workspaceCwd))
+      .replaceAll(PUBLICATION_SKILL_DIR, '{{authoring-skill}}')
+      .replaceAll(PUBLICATION_SKILL_DIR.replaceAll('\\', '\\\\'), '{{authoring-skill}}')
+    await compareOrRefreshGolden(PUBLICATION_SKILL_EXPECTED, snapshot, MODE)
+    expect(snapshot).toContain('《知识画报》故事园地')
+    expect(snapshot).toContain('直接输出 Markdown')
+    expect(snapshot).not.toContain('JSON 输出格式')
+    await settled
+    expect(tripwire.pageErrors).toEqual([])
+    expect(tripwire.warnings).toEqual([])
+  }, 60_000)
+
+  it('injects the selected LangMind practice as a Markdown skill', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-practice-skill'))
+    const composer = page.locator('textarea:enabled').last()
+    await composer.fill('')
+    await page.getByRole('button', { name: 'Select content' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Type' })
+    await dialog.getByRole('radio', { name: /新朋友/ }).click()
+    await dialog.getByRole('radio', { name: 'Practice' }).click()
+    await dialog.getByRole('radio', { name: '辨字测验' }).click()
+    await dialog.getByRole('radio', { name: 'P2', exact: true }).click()
+    await dialog.getByRole('radio', { name: '1', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Confirm' }).click()
+    await dialog.waitFor({ state: 'detached', timeout: 10_000 })
+    expect(await composer.inputValue()).toMatch(
+      /^\/practice-bian-zi-ce-yan 生成内容：辨字测验\n年级：P2\n课次：1\n生字：.+$/,
+    )
+
+    const settled = scaffold.whenTurnSettled()
+    await composer.press('Enter')
+    const injectionRow = page.getByRole('button', { name: 'Context injection practice-bian-zi-ce-yan' })
+    await injectionRow.waitFor({ timeout: 15_000 })
+    await injectionRow.click()
+    const injectionBody = page
+      .locator('[data-context-injection-body]')
+      .filter({ hasText: '<skill_content name="practice-bian-zi-ce-yan">' })
+    await injectionBody.waitFor({ timeout: 10_000 })
+    await injectionBody.evaluate((element) => { element.setAttribute('data-practice-injection-body', '') })
+    const snapshot = (await captureStableAria(page, '[data-practice-injection-body]', scaffold.workspaceCwd))
+      .replaceAll(PRACTICE_SKILL_DIR, '{{authoring-skill}}')
+      .replaceAll(PRACTICE_SKILL_DIR.replaceAll('\\', '\\\\'), '{{authoring-skill}}')
+    await compareOrRefreshGolden(PRACTICE_SKILL_EXPECTED, snapshot, MODE)
+    expect(snapshot).toContain('辨字测验')
+    expect(snapshot).toContain('Markdown 输出')
+    expect(snapshot).not.toContain('JSON 格式')
+    await settled
+    expect(tripwire.pageErrors).toEqual([])
+    expect(tripwire.warnings).toEqual([])
+  }, 60_000)
+
   it('keeps its snapshot inventory closed', async () => {
-    await assertFixtureInventory(SNAPSHOT_DIR, ['ui.expected.md'])
+    await assertFixtureInventory(SNAPSHOT_DIR, [
+      'authoring.expected.md',
+      'publication-skill.expected.md',
+      'practice-skill.expected.md',
+      'ui.expected.md',
+    ])
   })
 })

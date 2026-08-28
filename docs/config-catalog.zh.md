@@ -438,6 +438,20 @@ export interface Config {
 
 来源：[`packages/client/hmr/src/index.ts:31`](../packages/client/hmr/src/index.ts)
 
+<a id="deepseek-aidsh-client-ui-authoring"></a>
+
+## `@deepseek-ai/dsh-client-ui-authoring`
+
+```ts config-catalog
+/** Host-side authoring plugin configuration. */
+export interface Config {
+  /** Whether this scope receives the plugin's bundled skills. */
+  registerBundledSkills?: boolean
+}
+```
+
+来源：[`packages/extensions/authoring/src/index.ts:15`](../packages/extensions/authoring/src/index.ts)
+
 <a id="deepseek-aidsh-code-runtime-worker-thread"></a>
 
 ## `@deepseek-ai/dsh-code-runtime-worker-thread`

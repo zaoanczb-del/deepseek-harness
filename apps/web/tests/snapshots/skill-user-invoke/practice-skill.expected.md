@@ -1,0 +1,5 @@
+- text: "<skill_content name=\"practice-bian-zi-ce-yan\"> <skill_resources> Base directory for this skill: {{authoring-skill}} Resolve relative paths mentioned by this skill against the base directory before using them. Load referenced resources only as needed. </skill_resources> <skill_instructions> # 辨字测验 根据年级、课次和本课生字出题。每个生字按输入顺序生成一道填空选择题，不改用其他课次或来源的目标字。 ## 出题规则 - 句中只用一个 `#` 标记目标字位置，P2句子贴近家庭和校园生活，约8至14字。 - 每题3个选项，以部件或笔画相似的形近字为主，可混入音近字。 - 正确答案必须是目标生字。逐一代入所有干扰项，确保它们在语义、搭配或常用表达上不成立。 - 正确位置在整组题中分散，不重复同一组选项或句子。 ## Markdown 输出 输出 `# 辨字测验`、年级与课次、`## 练习题` 和 `## 参考答案`。选项使用 A、B、C；答案区按题号给出字母和目标字。不要输出 JSON、代码块或逐题即时答案。 </skill_instructions> </skill_content>"
+- term: name
+- definition: practice-bian-zi-ce-yan
+- term: form
+- definition: instructions

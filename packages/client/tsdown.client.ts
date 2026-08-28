@@ -13,7 +13,7 @@ import { existsSync, globSync, readFileSync } from 'node:fs'
 import { isBuiltin } from 'node:module'
 import { basename, dirname, isAbsolute, relative, resolve as resolvePath, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { UserConfig } from 'tsdown'
+import type { TsdownPluginOption, UserConfig } from 'tsdown'
 import { transform } from 'lightningcss'
 import { optionalStringArray } from './modules/src/client/manifest.ts'
 import { PLATFORM_MODULES, PRELOADED_CLIENT_EXTERNALS } from './web/src/platform.ts'
@@ -112,7 +112,7 @@ export function clientBundle(
   return ({ env }) => {
     const face = buildFace(env?.DSH_BUILD_FACE)
     const clientEntry = face === undefined ? 'src/client/index.ts' : 'lib/types/client/index.js'
-    const client = clientConfig(id, clientEntry)
+    const client = clientConfig(id, clientEntry, options.clientPlugins)
     const node = [lib, ...(options.companions ?? [])]
     if (face === 'host') return options.hostPhase === true ? node : [SKIP_WORKSPACE_BUILD]
     if (face === 'client') {
@@ -201,6 +201,8 @@ interface ClientBundleOptions {
   readonly companions?: readonly UserConfig[]
   /** Overrides for the package's primary Node-side library config. */
   readonly lib?: UserConfig
+  /** Additional plugins used only by the browser bundle. */
+  readonly clientPlugins?: readonly TsdownPluginOption[]
 }
 
 type BuildFace = 'host' | 'client' | undefined
@@ -434,7 +436,11 @@ function matchesSpecifier(patterns: readonly RegExp[], specifier: string): boole
   return patterns.some(pattern => pattern.test(specifier))
 }
 
-function clientConfig(id: string, entry: string): UserConfig {
+function clientConfig(
+  id: string,
+  entry: string,
+  clientPlugins: readonly TsdownPluginOption[] = [],
+): UserConfig {
   const isRequested = (specifier: string): boolean => clientExternals(id).has(specifier)
   return {
     name: `${id}/client`,
@@ -476,7 +482,7 @@ function clientConfig(id: string, entry: string): UserConfig {
       'import.meta.env.MODE': JSON.stringify(process.env.NODE_ENV ?? 'production'),
       'import.meta.env': JSON.stringify({ MODE: process.env.NODE_ENV ?? 'production' }),
     },
-    plugins: [{
+    plugins: [...clientPlugins, {
       // Bundle purity gate (build-time mirror of the module-edge rules): the
       // baseline and package-specific requests stay external, inline-safe wire layers
       // inline, and every other @deepseek-ai value import is a build error — a

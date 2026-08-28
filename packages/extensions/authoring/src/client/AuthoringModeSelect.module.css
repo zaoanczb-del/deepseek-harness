@@ -1,0 +1,223 @@
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 220px;
+  height: 28px;
+  padding: 0 4px 0 8px;
+  border: none;
+  border-radius: 24px;
+  outline: none;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.trigger:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.trigger:focus-visible {
+  box-shadow: 0 0 0 2px var(--dsw-alias-border-l3);
+}
+
+.trigger:disabled {
+  color: var(--dsw-alias-label-dimmed);
+  cursor: default;
+}
+
+.triggerIcon {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+/* The shared 16px glyph renders one step smaller on the exposed trigger. */
+.triggerIcon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.triggerLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chevron {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--dsw-alias-label-caption);
+  transition: transform 120ms ease;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.dialog {
+  width: min(720px, 100%);
+}
+
+.dialog .confirmButton {
+  background: var(--dsw-alias-button-info-fill);
+  color: #fff;
+}
+
+.dialog .confirmButton:hover:not(:disabled) {
+  background: var(--dsw-alias-button-info-hover);
+  color: #fff;
+}
+
+.typeGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.typeCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ds-text-1);
+  font: inherit;
+  cursor: pointer;
+}
+
+.typeCard:hover {
+  border-color: var(--dsw-alias-button-primary-fill);
+}
+
+.typeCardSelected,
+.typeCardSelected:hover {
+  border-color: var(--dsw-alias-button-info-fill);
+  background: var(--dsw-alias-button-info-fill);
+  color: #fff;
+}
+
+.typeName {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.typeSubtitle {
+  font-size: 12px;
+  line-height: 16px;
+  opacity: 0.7;
+}
+
+.modeGroup {
+  display: flex;
+  gap: 10px;
+}
+
+.practiceGroup {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sectionTitle {
+  margin: 16px 0 8px;
+  color: var(--ds-text-1);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.modeOption {
+  flex: 1;
+  padding: 8px 0;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ds-text-1);
+  font: inherit;
+  cursor: pointer;
+}
+
+.modeOption:hover:not(:disabled) {
+  border-color: var(--dsw-alias-button-primary-fill);
+}
+
+.modeOption:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.modeOptionSelected,
+.modeOptionSelected:hover:not(:disabled) {
+  border-color: var(--dsw-alias-button-info-fill);
+  background: var(--dsw-alias-button-info-fill);
+  color: #fff;
+}
+
+.gradeGroup {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.gradeOption {
+  padding: 8px 0;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ds-text-1);
+  font: inherit;
+  cursor: pointer;
+}
+
+.gradeOption:hover {
+  border-color: var(--dsw-alias-button-primary-fill);
+}
+
+.gradeOptionSelected,
+.gradeOptionSelected:hover {
+  border-color: var(--dsw-alias-button-info-fill);
+  background: var(--dsw-alias-button-info-fill);
+  color: #fff;
+}
+
+.lessonGroup {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+
+.lessonOption {
+  padding: 8px 0;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ds-text-1);
+  font: inherit;
+  cursor: pointer;
+}
+
+.lessonOption:hover {
+  border-color: var(--dsw-alias-button-primary-fill);
+}
+
+.lessonOptionSelected,
+.lessonOptionSelected:hover {
+  border-color: var(--dsw-alias-button-info-fill);
+  background: var(--dsw-alias-button-info-fill);
+  color: #fff;
+}
+
+@media (max-width: 560px) {
+  .practiceGroup {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
