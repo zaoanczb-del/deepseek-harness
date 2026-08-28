@@ -14,6 +14,7 @@ import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import type { ReplayEntry, ReplayOverrideDoc } from '@deepseek-ai/dsh-llm-replay'
 import {
   assertFixtureInventory,
+  captureExpandedTurnProcessAria,
   captureStableAria,
   compareOrRefreshGolden,
   launchWebScaffold,
@@ -21,9 +22,9 @@ import {
   webSnapshotMode,
   type WebScaffold,
 } from './scaffold.ts'
-import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
+import { connectFreshWorkspace, expandOwningTurnProcess, newEnglishPage, saveFailureShot } from './support.ts'
 
-const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/skill-user-invoke', import.meta.url))
+const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/skill-user-invoke', import.meta.url))
 const UI_EXPECTED = join(SNAPSHOT_DIR, 'ui.expected.md')
 const AUTHORING_EXPECTED = join(SNAPSHOT_DIR, 'authoring.expected.md')
 const PUBLICATION_SKILL_EXPECTED = join(SNAPSHOT_DIR, 'publication-skill.expected.md')
@@ -36,6 +37,7 @@ const PRACTICE_SKILL_DIR = fileURLToPath(new URL(
   '../../../packages/extensions/authoring/skills/practice-bian-zi-ce-yan',
   import.meta.url,
 ))
+const UI_EXPANDED_EXPECTED = join(SNAPSHOT_DIR, 'ui-expanded.expected.md')
 const MODE = webSnapshotMode()
 
 const SKILL_NAME = 'user-invoke-demo'
@@ -69,6 +71,11 @@ const REPLAY_ENTRY: ReplayEntry = {
 }
 const REPLAY: ReplayOverrideDoc = [REPLAY_ENTRY, REPLAY_ENTRY, REPLAY_ENTRY]
 
+/** Collapse the blank lines injected between contenteditable paragraphs. */
+function composerDraft(text: string): string {
+  return text.replaceAll('\n\n', '\n')
+}
+
 describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation through the composer', () => {
   let scaffold: WebScaffold
   let browser: Browser
@@ -91,7 +98,7 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
-    await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspace(page, scaffold.workspaceCwd)
   }, 120_000)
@@ -110,7 +117,7 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
 
   it('claims /name args into a gesture bubble, an injection row, and a replayed answer', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-skill-user-invoke'))
-    const composer = page.locator('textarea:enabled').last()
+    const composer = page.locator('[data-composer-input][contenteditable="true"]').last()
     await composer.waitFor({ timeout: 15_000 })
 
     // The menu lists the user-only skill (its only entry point) before enter.
@@ -132,10 +139,16 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
     expect(await bubble.textContent()).toBe(`/${SKILL_NAME}`)
 
     // The rendered body arrives as a context-injection row named after the
-    // skill; expanding it reveals the canonical <skill_content> block, and
-    // the user's text is NOT folded into it.
+    // skill. Context plus the final answer contributes no summary count, so
+    // the Turn uses the fallback title while the row's own disclosure remains usable.
+    const injectionFlow = page.locator('[data-chat-flow-kind="context"]').filter({ hasText: SKILL_NAME })
+    await injectionFlow.waitFor({ state: 'attached', timeout: 15_000 })
+    await page.getByText('USER_INVOKE_REPLY', { exact: false }).first().waitFor({ timeout: 20_000 })
+    await settled
+    const process = page.getByRole('button', { name: 'Thought for a while', exact: true })
+    await process.waitFor({ state: 'visible', timeout: 10_000 })
+    await expandOwningTurnProcess(page, injectionFlow)
     const injectionRow = page.getByRole('button', { name: `Context injection ${SKILL_NAME}` })
-    await injectionRow.waitFor({ timeout: 15_000 })
     await injectionRow.click()
     const injectionBody = page
       .locator('[data-context-injection-body]')
@@ -145,20 +158,23 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
     expect(injected).toContain('Reply with the fixture acknowledgement line.')
     expect(injected).not.toContain(ARGS_TEXT)
     await injectionRow.click()
-
-    // The injection started a turn; the replay adapter answers it.
-    await page.getByText('USER_INVOKE_REPLY', { exact: false }).first().waitFor({ timeout: 20_000 })
-    await settled
+    await process.click()
 
     const snapshot = await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
+    const expanded = await captureExpandedTurnProcessAria(
+      page,
+      '[class*="centerCol"]',
+      scaffold.workspaceCwd,
+    )
+    await compareOrRefreshGolden(UI_EXPANDED_EXPECTED, expanded, MODE)
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])
   }, 60_000)
 
   it('composes an authoring invocation with the selected Singapore Chinese lesson', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-authoring-selector'))
-    const composer = page.locator('textarea:enabled').last()
+    const composer = page.locator('[data-composer-input][contenteditable="true"]').last()
     await composer.fill('')
     const trigger = page.getByRole('button', { name: 'Select content' })
     await trigger.waitFor({ timeout: 15_000 })
@@ -183,12 +199,12 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
 
     await dialog.getByRole('button', { name: 'Confirm' }).click()
     await dialog.waitFor({ state: 'detached', timeout: 10_000 })
-    expect(await composer.inputValue()).toMatch(/^\/story 帮我编写 P1高年级第一课的故事\n本课生字：.+\n本课生词：.+$/)
+    expect(composerDraft(await composer.innerText())).toMatch(/^\/story 帮我编写 P1高年级第一课的故事\n本课生字：.+\n本课生词：.+$/)
   }, 60_000)
 
   it('injects only the selected publication Markdown skill', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-publication-story-skill'))
-    const composer = page.locator('textarea:enabled').last()
+    const composer = page.locator('[data-composer-input][contenteditable="true"]').last()
     await composer.fill('')
     await page.getByRole('button', { name: 'Select content' }).click()
     const dialog = page.getByRole('dialog', { name: 'Type' })
@@ -196,13 +212,18 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
     await dialog.getByRole('radio', { name: '动物寓言' }).click()
     await dialog.getByRole('button', { name: 'Confirm' }).click()
     await dialog.waitFor({ state: 'detached', timeout: 10_000 })
-    expect(await composer.inputValue())
+    expect(composerDraft(await composer.innerText()))
       .toBe('/knowledge-pictorial-story 请编写一篇“动物寓言”的故事\n故事主题：分享精神')
 
     const settled = scaffold.whenTurnSettled()
     await composer.press('Enter')
+    const injectionFlow = page
+      .locator('[data-chat-flow-kind="context"]')
+      .filter({ hasText: 'knowledge-pictorial-story' })
+    await injectionFlow.waitFor({ state: 'attached', timeout: 15_000 })
+    await settled
+    await expandOwningTurnProcess(page, injectionFlow)
     const injectionRow = page.getByRole('button', { name: 'Context injection knowledge-pictorial-story' })
-    await injectionRow.waitFor({ timeout: 15_000 })
     await injectionRow.click()
     const injectionBody = page
       .locator('[data-context-injection-body]')
@@ -222,7 +243,7 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
 
   it('injects the selected LangMind practice as a Markdown skill', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-practice-skill'))
-    const composer = page.locator('textarea:enabled').last()
+    const composer = page.locator('[data-composer-input][contenteditable="true"]').last()
     await composer.fill('')
     await page.getByRole('button', { name: 'Select content' }).click()
     const dialog = page.getByRole('dialog', { name: 'Type' })
@@ -233,14 +254,19 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
     await dialog.getByRole('radio', { name: '1', exact: true }).click()
     await dialog.getByRole('button', { name: 'Confirm' }).click()
     await dialog.waitFor({ state: 'detached', timeout: 10_000 })
-    expect(await composer.inputValue()).toMatch(
+    expect(composerDraft(await composer.innerText())).toMatch(
       /^\/practice-bian-zi-ce-yan 生成内容：辨字测验\n年级：P2\n课次：1\n生字：.+$/,
     )
 
     const settled = scaffold.whenTurnSettled()
-    await composer.press('Enter')
+    await page.getByRole('button', { name: 'Send message', exact: true }).click()
+    const injectionFlow = page
+      .locator('[data-chat-flow-kind="context"]')
+      .filter({ hasText: 'practice-bian-zi-ce-yan' })
+    await injectionFlow.waitFor({ state: 'attached', timeout: 15_000 })
+    await settled
+    await expandOwningTurnProcess(page, injectionFlow)
     const injectionRow = page.getByRole('button', { name: 'Context injection practice-bian-zi-ce-yan' })
-    await injectionRow.waitFor({ timeout: 15_000 })
     await injectionRow.click()
     const injectionBody = page
       .locator('[data-context-injection-body]')
@@ -264,6 +290,7 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
       'authoring.expected.md',
       'publication-skill.expected.md',
       'practice-skill.expected.md',
+      'ui-expanded.expected.md',
       'ui.expected.md',
     ])
   })

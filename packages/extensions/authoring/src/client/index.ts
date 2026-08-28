@@ -1,8 +1,9 @@
 /** Authoring selector browser half. */
-import type { ConnectionHandle, SessionId } from '@deepseek-ai/dsh-api-remotes/client'
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionId, SkillEntry } from '@deepseek-ai/dsh-api-remotes/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { AuthoringModeSelect } from './AuthoringModeSelect.tsx'
 import { AUTHORING_SKILLS } from './content.ts'
 import type { AuthoringMode } from './draft.ts'
@@ -22,16 +23,16 @@ export interface AuthoringModeInjected {
 }
 
 /** Required browser services. */
-export const inject = ['slots', 'locale', 'connection']
+export const inject = ['slots', 'locale', 'remote', 'remote.skills']
 
 /** Register locale dictionaries and append the selector to input.left. */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'authoring: dictionaries')
-  const skills = (ctx.get('connection') as ConnectionHandle).api.skills
+  const skills = ctx.remote.skills
   const listModes: AuthoringModeInjected['listModes'] = async (sessionId, signal) => {
-    const { result } = await skills.list({ sessionId }, signal)
+    const result = await skills.list({ sessionId }, signal)
     if (!result.ok) throw new Error(`skill.list failed: ${result.error.code}: ${result.error.message}`)
-    const names = new Set(result.value.skills.map(skill => skill.name))
+    const names = new Set(result.value.skills.map((skill: SkillEntry) => skill.name))
     return AUTHORING_SKILLS.filter(mode => names.has(mode))
   }
   ctx.slots.inject('conversation.input.left', () => ctx.slots.register({
