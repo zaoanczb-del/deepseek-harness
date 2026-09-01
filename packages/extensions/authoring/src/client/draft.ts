@@ -6,6 +6,7 @@ import {
   type AuthoringSkill,
   type AuthoringGrade,
   type LessonAuthoringType,
+  type MoralUnitOption,
   type PracticeTypeOption,
   type PublicationAuthoringSkill,
   type PublicationAuthoringType,
@@ -28,6 +29,8 @@ const LESSON_TOKEN = /^[ \t]+第([1-9]\d*)课(?=\s|$)/
 const NATURAL_PROMPT = /^[ \t]+帮我编写[ \t]+P[1-6](?:高)?年级第[一二三四五六七八九十百]+课的(?:故事|练习题)(?=\s|$)/
 /** Vocabulary lines generated after a natural-language lesson prompt. */
 const NATURAL_VOCABULARY = /^\r?\n本课生字：[^\r\n]*\r?\n本课生词：[^\r\n]*/
+/** The generated New World moral-unit fields after its dedicated skill token. */
+const MORAL_PROMPT = /^[ \t]+单元标题：([^\r\n]+)\r?\n单元主题：([^\r\n]+)(?=\s|$)/
 
 const SPECIALIZED_PROMPTS: Readonly<Record<PublicationAuthoringSkill, RegExp>> = {
   'good-friend-story': /^[ \t]+请编写一个主题为“海边露营”的故事(?=\s|$)/,
@@ -48,6 +51,8 @@ export interface AuthoringSelection {
   readonly storyKind: string | undefined
   /** Synchronous-practice type selected for a dedicated practice skill. */
   readonly practiceType: string | undefined
+  /** New World moral-education unit selected for its dedicated skill. */
+  readonly unit: number | undefined
   /** Grade following a generic type, when that type offers it. */
   readonly grade: string | undefined
   /** Lesson following a generic grade, when it names a positive number. */
@@ -73,6 +78,19 @@ export function readAuthoringMode(draft: string): AuthoringSelection | undefined
   const modeMatch = MODE_PREFIX.exec(draft)
   if (modeMatch === null) return undefined
   const mode = modeMatch[1] as AuthoringSkill
+  if (mode === 'new-world-moral-story') {
+    const metadata = readMoralMetadata(draft.slice(modeMatch[0].length))
+    return {
+      mode,
+      type: '新天地',
+      content: '好品德好公民',
+      storyKind: undefined,
+      practiceType: undefined,
+      unit: metadata?.unitNumber,
+      grade: undefined,
+      lesson: undefined,
+    }
+  }
   const practice = findPracticeType(mode)
   if (practice !== undefined) {
     const metadata = readPracticeMetadata(draft.slice(modeMatch[0].length), practice)
@@ -83,6 +101,7 @@ export function readAuthoringMode(draft: string): AuthoringSelection | undefined
       content: '同步练习题',
       storyKind: undefined,
       practiceType: practice.label,
+      unit: undefined,
       grade: metadata.grade,
       lesson: metadata.lesson,
     }
@@ -99,6 +118,7 @@ export function readAuthoringMode(draft: string): AuthoringSelection | undefined
       content: specialized.content,
       storyKind,
       practiceType: undefined,
+      unit: undefined,
       grade: undefined,
       lesson: undefined,
     }
@@ -113,6 +133,7 @@ export function readAuthoringMode(draft: string): AuthoringSelection | undefined
       content: undefined,
       storyKind: undefined,
       practiceType: undefined,
+      unit: undefined,
       grade: undefined,
       lesson: undefined,
     }
@@ -129,6 +150,7 @@ export function readAuthoringMode(draft: string): AuthoringSelection | undefined
       content: undefined,
       storyKind: undefined,
       practiceType: undefined,
+      unit: undefined,
       grade,
       lesson: undefined,
     }
@@ -142,6 +164,7 @@ export function readAuthoringMode(draft: string): AuthoringSelection | undefined
     content: undefined,
     storyKind: undefined,
     practiceType: undefined,
+    unit: undefined,
     grade,
     lesson: lessonMatch === null ? undefined : Number(lessonMatch[1]),
   }
@@ -188,6 +211,16 @@ export function applyPracticeAuthoring(
 }
 
 /**
+ * Replace the leading authoring invocation with a New World moral-unit request.
+ * @param draft - Current composer text.
+ * @param unit - Selected P3 moral-education unit.
+ * @returns Draft beginning with the dedicated moral-education skill invocation.
+ */
+export function applyMoralAuthoring(draft: string, unit: MoralUnitOption): string {
+  return joinInvocation(createMoralPrompt(unit), stripPreviousInvocation(draft))
+}
+
+/**
  * Replace the leading authoring invocation with a publication-specific story request.
  * @param draft - Current composer text.
  * @param type - Publication containing the selected generation choice.
@@ -214,6 +247,11 @@ function stripPreviousInvocation(draft: string): string {
   if (modeMatch === null) return draft.trim()
   const mode = modeMatch[1] as AuthoringSkill
   let rest = draft.slice(modeMatch[0].length)
+  if (mode === 'new-world-moral-story') {
+    const promptMatch = MORAL_PROMPT.exec(rest)
+    if (promptMatch !== null) rest = rest.slice(promptMatch[0].length)
+    return rest.trim()
+  }
   const practice = findPracticeType(mode)
   if (practice !== undefined) {
     const promptMatch = practicePromptPattern(practice).exec(rest)
@@ -284,6 +322,19 @@ function createPracticePrompt(
   if (practice.vocabulary !== 'words') lines.push(`生字：${formatPracticeTerms(vocabulary.characters)}`)
   if (practice.vocabulary !== 'characters') lines.push(`词语：${formatPracticeTerms(vocabulary.words)}`)
   return lines.join('\n')
+}
+
+function createMoralPrompt(unit: MoralUnitOption): string {
+  return `/new-world-moral-story 单元标题：${unit.lessonTitle}\n单元主题：${unit.theme}`
+}
+
+function readMoralMetadata(prompt: string): MoralUnitOption | undefined {
+  const match = MORAL_PROMPT.exec(prompt)
+  if (match === null) return undefined
+  const newWorld = AUTHORING_TYPES.find(type => type.kind === 'lesson' && type.label === '新天地')
+  return newWorld?.kind === 'lesson'
+    ? newWorld.moralContent?.units.find(unit => unit.lessonTitle === match[1] && unit.theme === match[2])
+    : undefined
 }
 
 function readPracticeMetadata(

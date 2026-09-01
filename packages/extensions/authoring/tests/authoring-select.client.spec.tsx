@@ -179,6 +179,34 @@ describe('AuthoringModeSelect', () => {
     expect(screen.getByRole('radio', { name: '拼音选择' })).toBeDefined()
   })
 
+  it('composes and restores every New World moral unit without lesson controls', async () => {
+    const { setDraft } = mount()
+    await screen.findByRole('button', { name: '选择内容' })
+    fireEvent.click(trigger())
+    fireEvent.click(screen.getByRole('radio', { name: /新天地/ }))
+    fireEvent.click(screen.getByRole('radio', { name: '好品德好公民' }))
+    expect(screen.getByRole('heading', { name: '单元' })).toBeDefined()
+    expect(screen.getByRole('radio', { name: /单元一 我的第一份礼物我的名字/ })).toBeDefined()
+    expect(screen.getByRole('radio', { name: /单元九 不同想法，一个目标为实现共同目标而努力/ })).toBeDefined()
+    expect(screen.queryByRole('heading', { name: '年级' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: '课次' })).toBeNull()
+    expect(screen.queryByText(/生成图片|生成漫画/)).toBeNull()
+    fireEvent.click(screen.getByRole('radio', { name: /单元四 我有勇气勇敢面对困难/ }))
+    fireEvent.click(screen.getByRole('button', { name: '确定' }))
+    expect(setDraft).toHaveBeenCalledWith(
+      '/new-world-moral-story 单元标题：我有勇气\n单元主题：勇敢面对困难',
+    )
+
+    cleanup()
+    mount({ draft: '/new-world-moral-story 单元标题：我有勇气\n单元主题：勇敢面对困难' })
+    await screen.findByRole('button', { name: '选择内容' })
+    fireEvent.click(trigger())
+    expect(screen.getByRole('radio', { name: /新天地/ }).getAttribute('aria-checked')).toBe('true')
+    expect(screen.getByRole('radio', { name: '好品德好公民' }).getAttribute('aria-checked')).toBe('true')
+    expect(screen.getByRole('radio', { name: /单元四 我有勇气勇敢面对困难/ }).getAttribute('aria-checked'))
+      .toBe('true')
+  })
+
   it('filters grades by practice type and writes its dedicated invocation', async () => {
     const { setDraft } = mount()
     await screen.findByRole('button', { name: '选择内容' })

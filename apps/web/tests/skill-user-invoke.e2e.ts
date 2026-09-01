@@ -27,8 +27,13 @@ import { connectFreshWorkspace, expandOwningTurnProcess, newEnglishPage, saveFai
 const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/skill-user-invoke', import.meta.url))
 const UI_EXPECTED = join(SNAPSHOT_DIR, 'ui.expected.md')
 const AUTHORING_EXPECTED = join(SNAPSHOT_DIR, 'authoring.expected.md')
+const MORAL_SKILL_EXPECTED = join(SNAPSHOT_DIR, 'moral-skill.expected.md')
 const PUBLICATION_SKILL_EXPECTED = join(SNAPSHOT_DIR, 'publication-skill.expected.md')
 const PRACTICE_SKILL_EXPECTED = join(SNAPSHOT_DIR, 'practice-skill.expected.md')
+const MORAL_SKILL_DIR = fileURLToPath(new URL(
+  '../../../packages/extensions/authoring/skills/new-world-moral-story',
+  import.meta.url,
+))
 const PUBLICATION_SKILL_DIR = fileURLToPath(new URL(
   '../../../packages/extensions/authoring/skills/knowledge-pictorial-story',
   import.meta.url,
@@ -69,7 +74,7 @@ const REPLAY_ENTRY: ReplayEntry = {
     { type: 'finish', reason: { kind: 'stop' } },
   ],
 }
-const REPLAY: ReplayOverrideDoc = [REPLAY_ENTRY, REPLAY_ENTRY, REPLAY_ENTRY]
+const REPLAY: ReplayOverrideDoc = [REPLAY_ENTRY, REPLAY_ENTRY, REPLAY_ENTRY, REPLAY_ENTRY]
 
 /** Collapse the blank lines injected between contenteditable paragraphs. */
 function composerDraft(text: string): string {
@@ -241,6 +246,48 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
     expect(tripwire.warnings).toEqual([])
   }, 60_000)
 
+  it('injects the selected New World moral story without image generation', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-new-world-moral-story-skill'))
+    const composer = page.locator('[data-composer-input][contenteditable="true"]').last()
+    await composer.fill('')
+    await page.getByRole('button', { name: 'Select content' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Type' })
+    await dialog.getByRole('radio', { name: /新天地/ }).click()
+    await dialog.getByRole('radio', { name: '好品德好公民' }).click()
+    expect(await dialog.getByText(/Generate image|生成图片|生成漫画/).count()).toBe(0)
+    await dialog.locator('[role="radio"]').filter({ hasText: '我有勇气' }).click()
+    await dialog.getByRole('button', { name: 'Confirm' }).click()
+    await dialog.waitFor({ state: 'detached', timeout: 10_000 })
+    expect(composerDraft(await composer.innerText()))
+      .toBe('/new-world-moral-story 单元标题：我有勇气\n单元主题：勇敢面对困难')
+
+    const settled = scaffold.whenTurnSettled()
+    await page.getByRole('button', { name: 'Send message', exact: true }).click()
+    const injectionFlow = page
+      .locator('[data-chat-flow-kind="context"]')
+      .filter({ hasText: 'new-world-moral-story' })
+    await injectionFlow.waitFor({ state: 'attached', timeout: 15_000 })
+    await settled
+    await expandOwningTurnProcess(page, injectionFlow)
+    const injectionRow = page.getByRole('button', { name: 'Context injection new-world-moral-story' })
+    await injectionRow.click()
+    const injectionBody = page
+      .locator('[data-context-injection-body]')
+      .filter({ hasText: '<skill_content name="new-world-moral-story">' })
+    await injectionBody.waitFor({ timeout: 10_000 })
+    await injectionBody.evaluate((element) => { element.setAttribute('data-moral-injection-body', '') })
+    const snapshot = (await captureStableAria(page, '[data-moral-injection-body]', scaffold.workspaceCwd))
+      .replaceAll(MORAL_SKILL_DIR, '{{authoring-skill}}')
+      .replaceAll(MORAL_SKILL_DIR.replaceAll('\\', '\\\\'), '{{authoring-skill}}')
+    await compareOrRefreshGolden(MORAL_SKILL_EXPECTED, snapshot, MODE)
+    expect(snapshot).toContain('《新天地》好品德好公民')
+    expect(snapshot).toContain('Markdown 输出')
+    expect(snapshot).toContain('只生成文字内容')
+    expect(snapshot).not.toContain('BuildMoralComicImagePrompt')
+    expect(tripwire.pageErrors).toEqual([])
+    expect(tripwire.warnings).toEqual([])
+  }, 60_000)
+
   it('injects the selected LangMind practice as a Markdown skill', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-practice-skill'))
     const composer = page.locator('[data-composer-input][contenteditable="true"]').last()
@@ -288,6 +335,7 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
   it('keeps its snapshot inventory closed', async () => {
     await assertFixtureInventory(SNAPSHOT_DIR, [
       'authoring.expected.md',
+      'moral-skill.expected.md',
       'publication-skill.expected.md',
       'practice-skill.expected.md',
       'ui-expanded.expected.md',

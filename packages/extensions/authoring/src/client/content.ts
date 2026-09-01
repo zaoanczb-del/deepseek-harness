@@ -4,8 +4,12 @@
 export type AuthoringSkill =
   | 'story'
   | 'practice'
+  | MoralAuthoringSkill
   | PracticeAuthoringSkill
   | PublicationAuthoringSkill
+
+/** Dedicated New World moral-education skill. */
+export type MoralAuthoringSkill = 'new-world-moral-story'
 
 /** Dedicated publication story skills. */
 export type PublicationAuthoringSkill =
@@ -35,6 +39,7 @@ export type PracticeAuthoringSkill =
 export const AUTHORING_SKILLS: readonly AuthoringSkill[] = [
   'story',
   'practice',
+  'new-world-moral-story',
   'practice-xuan-pin-ying',
   'practice-pei-ci',
   'practice-shu-bi-hua',
@@ -80,6 +85,30 @@ export interface PracticeTypeOption {
   readonly vocabulary: PracticeVocabularySource
 }
 
+/** One P3 New World moral-education unit migrated from LangMind. */
+export interface MoralUnitOption {
+  /** Numeric unit identifier used in draft restoration. */
+  readonly unitNumber: number
+  /** Chinese unit numeral shown in the selector. */
+  readonly unit: string
+  /** Textbook lesson title shown in the selector and generated draft. */
+  readonly lessonTitle: string
+  /** Moral theme passed unchanged to the selected skill. */
+  readonly theme: string
+  /** Textbook learning goal retained with the unit catalog. */
+  readonly learningGoal: string
+}
+
+/** The New World moral-education choice attached to its lesson catalog. */
+export interface MoralContentOption {
+  /** Label shown under Generate content. */
+  readonly label: string
+  /** Dedicated skill invoked for every unit. */
+  readonly skill: MoralAuthoringSkill
+  /** P3 units offered after selecting this content. */
+  readonly units: readonly MoralUnitOption[]
+}
+
 /** A textbook catalog whose requests use a grade, lesson, and lesson vocabulary. */
 export interface LessonAuthoringType {
   /** Discriminant for the grade-and-lesson workflow. */
@@ -90,6 +119,8 @@ export interface LessonAuthoringType {
   readonly subtitle: string
   /** Singapore Chinese grades offered for this content type. */
   readonly grades: readonly AuthoringGrade[]
+  /** Optional moral-education workflow offered only by New World. */
+  readonly moralContent?: MoralContentOption
 }
 
 /** One publication-specific generation option. */
@@ -154,10 +185,87 @@ export const PRACTICE_TYPES: readonly PracticeTypeOption[] = [
   { label: '拼音选择', skill: 'practice-pin-ying-xuan-ze', grades: [2, 6], vocabulary: 'words' },
 ]
 
+/** P3 New World moral-education units, in LangMind display order. */
+export const NEW_WORLD_MORAL_UNITS: readonly MoralUnitOption[] = [
+  {
+    unitNumber: 1,
+    unit: '一',
+    lessonTitle: '我的第一份礼物',
+    theme: '我的名字',
+    learningGoal: '我了解自己名字的意思，知道怎样去实现自己名字的意思，并付出努力去实现。',
+  },
+  {
+    unitNumber: 2,
+    unit: '二',
+    lessonTitle: '我的家人',
+    theme: '关爱和尊重家人',
+    learningGoal: '我会尽自己的责任，关爱和尊重家人，努力做好自己要做的事。与兄弟姐妹相亲相爱，互相照顾，互相帮助。',
+  },
+  {
+    unitNumber: 3,
+    unit: '三',
+    lessonTitle: '说声谢谢你',
+    theme: '学会感恩',
+    learningGoal: '我懂得感恩，会注意身边值得感恩的人和事物。我会用行动向那些帮助我学习和成长的人、事物以及大自然表示感谢。',
+  },
+  {
+    unitNumber: 4,
+    unit: '四',
+    lessonTitle: '我有勇气',
+    theme: '勇敢面对困难',
+    learningGoal: '面对问题或困难时，我会鼓起勇气，鼓励自己积极面对，想办法解决，或勇敢向身边的人求助，努力战胜困难。',
+  },
+  {
+    unitNumber: 5,
+    unit: '五',
+    lessonTitle: '宝贵的食物',
+    theme: '珍惜食物',
+    learningGoal: '我知道食物很宝贵。我会珍惜食物，为减少食物浪费付出努力。',
+  },
+  {
+    unitNumber: 6,
+    unit: '六',
+    lessonTitle: '我会用心听',
+    theme: '用心听',
+    learningGoal: '我用心听别人的看法和意见，做出更好的决定，让自己不断进步。做决定时考虑别人的意见，让他们感受到关爱和尊重。',
+  },
+  {
+    unitNumber: 7,
+    unit: '七',
+    lessonTitle: '怎样说？怎样做？',
+    theme: '尊重他人',
+    learningGoal: '我会尊重他人，有礼貌地和别人说话，用礼貌的行为和尊重的态度跟别人沟通。',
+  },
+  {
+    unitNumber: 8,
+    unit: '八',
+    lessonTitle: '关心每一个人',
+    theme: '关心和尊重别人',
+    learningGoal: '我会关心、帮助身边有需要的人，并用礼貌的言行对待别人，与大家互相关爱、互相尊重，友好相处。',
+  },
+  {
+    unitNumber: 9,
+    unit: '九',
+    lessonTitle: '不同想法，一个目标',
+    theme: '为实现共同目标而努力',
+    learningGoal: '我会发挥自己的长处，以尊重的态度分享自己的想法，认真听取不同的意见，和大家一起实现共同目标。',
+  },
+]
+
 /** The content types the dialog offers, in display order. */
 export const AUTHORING_TYPES: readonly AuthoringType[] = [
   { kind: 'lesson', label: '新朋友', subtitle: 'P1-P2', grades: LOWER_PRIMARY_GRADES },
-  { kind: 'lesson', label: '新天地', subtitle: 'P3-P4', grades: MIDDLE_PRIMARY_GRADES },
+  {
+    kind: 'lesson',
+    label: '新天地',
+    subtitle: 'P3-P4',
+    grades: MIDDLE_PRIMARY_GRADES,
+    moralContent: {
+      label: '好品德好公民',
+      skill: 'new-world-moral-story',
+      units: NEW_WORLD_MORAL_UNITS,
+    },
+  },
   { kind: 'lesson', label: '新列车', subtitle: 'P5-P6', grades: UPPER_PRIMARY_GRADES },
   {
     kind: 'publication',

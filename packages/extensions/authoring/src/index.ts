@@ -1,7 +1,7 @@
 /**
- * Authoring plugin host half: optionally mounts the bundled textbook story, synchronous-practice,
- * and publication skills into the current agent-preset scope. The Web bundle loads the same
- * package with registration disabled only to discover its browser half.
+ * Authoring plugin host half: optionally mounts the bundled textbook story, moral-education,
+ * synchronous-practice, and publication skills into the current agent-preset scope. The Web
+ * bundle loads the same package with registration disabled only to discover its browser half.
  *
  * @module @deepseek-ai/dsh-client-ui-authoring
  */

@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   applyAuthoringMode,
+  applyMoralAuthoring,
   applyPracticeAuthoring,
   applyPublicationAuthoring,
   readAuthoringMode,
 } from '../src/client/draft.ts'
-import { AUTHORING_TYPES, PRACTICE_TYPES } from '../src/client/content.ts'
+import { AUTHORING_TYPES, NEW_WORLD_MORAL_UNITS, PRACTICE_TYPES } from '../src/client/content.ts'
 import { formatLessonVocabulary, vocabularyForLesson, type LessonVocabulary } from '../src/client/lesson-data.ts'
 
 const vocabulary: LessonVocabulary = { characters: ['月', '球'], words: ['月球'] }
@@ -68,6 +69,8 @@ describe('authoring draft mapping', () => {
         type: undefined,
         content: undefined,
         storyKind: undefined,
+        practiceType: undefined,
+        unit: undefined,
         grade: undefined,
         lesson: undefined,
       })
@@ -82,6 +85,8 @@ describe('authoring draft mapping', () => {
         type: '新朋友',
         content: undefined,
         storyKind: undefined,
+        practiceType: undefined,
+        unit: undefined,
         grade: 'P1高',
         lesson: 12,
       })
@@ -91,6 +96,8 @@ describe('authoring draft mapping', () => {
         type: '新天地',
         content: undefined,
         storyKind: undefined,
+        practiceType: undefined,
+        unit: undefined,
         grade: undefined,
         lesson: undefined,
       })
@@ -100,6 +107,8 @@ describe('authoring draft mapping', () => {
         type: undefined,
         content: undefined,
         storyKind: undefined,
+        practiceType: undefined,
+        unit: undefined,
         grade: undefined,
         lesson: undefined,
       })
@@ -148,6 +157,7 @@ describe('authoring draft mapping', () => {
       content: '同步练习题',
       storyKind: undefined,
       practiceType: '填写汉字',
+      unit: undefined,
       grade: 'P3',
       lesson: 4,
     })
@@ -162,9 +172,34 @@ describe('authoring draft mapping', () => {
         type: '知识画报',
         content: '故事园地',
         storyKind: '动物寓言',
+        practiceType: undefined,
+        unit: undefined,
         grade: undefined,
         lesson: undefined,
       })
+  })
+
+  it('composes, restores, and replaces a New World moral-unit request', () => {
+    const unit = NEW_WORLD_MORAL_UNITS[3]
+    const nextUnit = NEW_WORLD_MORAL_UNITS[4]
+    if (unit === undefined || nextUnit === undefined) throw new Error('missing moral-unit fixture')
+    const draft = applyMoralAuthoring('请使用学校场景', unit)
+    expect(draft).toBe(
+      '/new-world-moral-story 单元标题：我有勇气\n单元主题：勇敢面对困难\n请使用学校场景',
+    )
+    expect(readAuthoringMode(draft)).toEqual({
+      mode: 'new-world-moral-story',
+      type: '新天地',
+      content: '好品德好公民',
+      storyKind: undefined,
+      practiceType: undefined,
+      unit: 4,
+      grade: undefined,
+      lesson: undefined,
+    })
+    expect(applyMoralAuthoring(draft, nextUnit)).toBe(
+      '/new-world-moral-story 单元标题：宝贵的食物\n单元主题：珍惜食物\n请使用学校场景',
+    )
   })
 
   it('replaces a publication prompt with a lesson prompt while preserving user text', () => {

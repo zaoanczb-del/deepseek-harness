@@ -17,6 +17,7 @@ import {
 import { lessonsForGrade, vocabularyForLesson } from './lesson-data.ts'
 import {
   applyAuthoringMode,
+  applyMoralAuthoring,
   applyPracticeAuthoring,
   applyPublicationAuthoring,
   readAuthoringMode,
@@ -38,6 +39,7 @@ export function AuthoringModeSelect({ sessionId, input, inputActions, listModes,
   const [skill, setSkill] = useState<AuthoringSkill | undefined>(undefined)
   const [content, setContent] = useState<string | undefined>(undefined)
   const [storyKind, setStoryKind] = useState<string | undefined>(undefined)
+  const [unit, setUnit] = useState<number | undefined>(undefined)
   const [grade, setGrade] = useState<string | undefined>(undefined)
   const [lesson, setLesson] = useState<number | undefined>(undefined)
 
@@ -62,9 +64,14 @@ export function AuthoringModeSelect({ sessionId, input, inputActions, listModes,
   const selectedGrade = selectedType?.kind === 'lesson'
     ? selectedType.grades.find(entry => entry.label === grade)
     : undefined
+  const moralContentOption = selectedType?.kind === 'lesson' ? selectedType.moralContent : undefined
+  const selectedMoralContent = moralContentOption?.label === content
+    ? moralContentOption
+    : undefined
+  const selectedMoralUnit = selectedMoralContent?.units.find(candidate => candidate.unitNumber === unit)
   const practiceOptions = selectedType?.kind === 'lesson' ? practicesForType(selectedType) : undefined
   const selectedPractice = findPracticeType(skill)
-  const grades = selectedType?.kind === 'lesson' && skill !== undefined
+  const grades = selectedType?.kind === 'lesson' && skill !== undefined && selectedMoralContent === undefined
     ? selectedPractice === undefined
       ? selectedType.grades
       : selectedType.grades.filter(candidate => supportsPracticeGrade(selectedPractice, candidate))
@@ -85,7 +92,11 @@ export function AuthoringModeSelect({ sessionId, input, inputActions, listModes,
     && availableSkills.includes(selectedContent.skill)
     && (selectedContent.storyKinds === undefined
       || (storyKind !== undefined && selectedContent.storyKinds.includes(storyKind)))
-  const confirmable = lessonConfirmable || publicationConfirmable
+  const moralConfirmable = selectedType?.kind === 'lesson'
+    && selectedMoralContent !== undefined
+    && selectedMoralUnit !== undefined
+    && availableSkills.includes(selectedMoralContent.skill)
+  const confirmable = lessonConfirmable || publicationConfirmable || moralConfirmable
 
   const applyLessonDefaults = (
     candidate: LessonAuthoringType,
@@ -118,6 +129,20 @@ export function AuthoringModeSelect({ sessionId, input, inputActions, listModes,
     setGrade(undefined)
     setLesson(undefined)
     if (candidate.kind === 'lesson') {
+      const restoredMoral = restored?.type === candidate.label
+        && restored.content === candidate.moralContent?.label
+        && candidate.moralContent !== undefined
+        && availableSkills.includes(candidate.moralContent.skill)
+        ? candidate.moralContent
+        : undefined
+      if (restoredMoral !== undefined) {
+        const restoredUnit = restoredMoral.units.find(entry => entry.unitNumber === restored?.unit)
+        setSkill(restoredMoral.skill)
+        setContent(restoredMoral.label)
+        setStoryKind(undefined)
+        setUnit(restoredUnit?.unitNumber ?? restoredMoral.units[0]?.unitNumber)
+        return restoredMoral.skill
+      }
       const restoredPractice = restored?.type === candidate.label
         ? practicesForType(candidate).find(option => option.label === restored.practiceType)
         : undefined
@@ -135,6 +160,7 @@ export function AuthoringModeSelect({ sessionId, input, inputActions, listModes,
       setSkill(nextSkill)
       setContent(undefined)
       setStoryKind(undefined)
+      setUnit(undefined)
       applyLessonDefaults(candidate, nextSkill, restored)
       return nextSkill
     }
@@ -147,6 +173,7 @@ export function AuthoringModeSelect({ sessionId, input, inputActions, listModes,
     setStoryKind(nextContent?.storyKinds?.includes(restored?.storyKind ?? '') === true
       ? restored?.storyKind
       : nextContent?.storyKinds?.[0])
+    setUnit(undefined)
     return nextContent?.skill
   }
 
@@ -160,6 +187,13 @@ export function AuthoringModeSelect({ sessionId, input, inputActions, listModes,
   const close = (): void => { setOpen(false) }
   const confirm = (): void => {
     if (selectedType?.kind === 'lesson') {
+      if (selectedMoralContent !== undefined) {
+        /* v8 ignore next -- the confirm button is disabled until one moral unit is selected */
+        if (selectedMoralUnit === undefined) return
+        inputActions.setDraft(applyMoralAuthoring(input.draft, selectedMoralUnit))
+        setOpen(false)
+        return
+      }
       /* v8 ignore next -- the confirm button is disabled until the lesson selection is complete */
       if (selectedGrade === undefined || lesson === undefined || selectedVocabulary === undefined) return
       if (skill === 'story') {
@@ -189,7 +223,19 @@ export function AuthoringModeSelect({ sessionId, input, inputActions, listModes,
       ? 'story'
       : practiceOptions?.find(option => availableSkills.includes(option.skill))?.skill
     setSkill(nextSkill)
+    setContent(undefined)
+    setUnit(undefined)
     applyLessonDefaults(selectedType, nextSkill, undefined)
+  }
+
+  const selectMoralContent = (): void => {
+    if (selectedType?.kind !== 'lesson' || selectedType.moralContent === undefined) return
+    setSkill(selectedType.moralContent.skill)
+    setContent(selectedType.moralContent.label)
+    setStoryKind(undefined)
+    setGrade(undefined)
+    setLesson(undefined)
+    setUnit(selectedType.moralContent.units[0]?.unitNumber)
   }
 
   const selectPublicationContent = (option: PublicationContentOption): void => {
@@ -259,25 +305,43 @@ export function AuthoringModeSelect({ sessionId, input, inputActions, listModes,
                 {option.label}
               </button>
             ))
-            : (['story', 'practice'] as const).map((candidate) => {
-              const candidateSelected = candidate === 'story' ? skill === 'story' : selectedPractice !== undefined
-              const candidateAvailable = candidate === 'story'
-                ? availableSkills.includes('story')
-                : practiceOptions?.some(option => availableSkills.includes(option.skill)) === true
-              return (
-                <button
-                  key={candidate}
-                  type="button"
-                  role="radio"
-                  aria-checked={candidateSelected}
-                  disabled={!candidateAvailable}
-                  className={candidateSelected ? `${css.modeOption} ${css.modeOptionSelected}` : css.modeOption}
-                  onClick={() => { selectLessonMode(candidate) }}
-                >
-                  {t(`mode.${candidate}`)}
-                </button>
-              )
-            })}
+            : (
+              <>
+                {(['story', 'practice'] as const).map((candidate) => {
+                  const candidateSelected = candidate === 'story' ? skill === 'story' : selectedPractice !== undefined
+                  const candidateAvailable = candidate === 'story'
+                    ? availableSkills.includes('story')
+                    : practiceOptions?.some(option => availableSkills.includes(option.skill)) === true
+                  return (
+                    <button
+                      key={candidate}
+                      type="button"
+                      role="radio"
+                      aria-checked={candidateSelected}
+                      disabled={!candidateAvailable}
+                      className={candidateSelected ? `${css.modeOption} ${css.modeOptionSelected}` : css.modeOption}
+                      onClick={() => { selectLessonMode(candidate) }}
+                    >
+                      {t(`mode.${candidate}`)}
+                    </button>
+                  )
+                })}
+                {moralContentOption !== undefined && (
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={selectedMoralContent !== undefined}
+                    disabled={!availableSkills.includes(moralContentOption.skill)}
+                    className={selectedMoralContent !== undefined
+                      ? `${css.modeOption} ${css.modeOptionSelected}`
+                      : css.modeOption}
+                    onClick={selectMoralContent}
+                  >
+                    {moralContentOption.label}
+                  </button>
+                )}
+              </>
+            )}
         </div>
         {selectedType?.kind === 'lesson' && selectedPractice !== undefined && practiceOptions !== undefined && (
           <>
@@ -319,6 +383,28 @@ export function AuthoringModeSelect({ sessionId, input, inputActions, listModes,
                   onClick={() => { setStoryKind(candidate) }}
                 >
                   {candidate}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        {selectedMoralContent !== undefined && (
+          <>
+            <h3 className={css.sectionTitle}>{t('section.unit')}</h3>
+            <div className={css.unitGroup} role="radiogroup" aria-label={t('section.unit')}>
+              {selectedMoralContent.units.map(candidate => (
+                <button
+                  key={candidate.unitNumber}
+                  type="button"
+                  role="radio"
+                  aria-checked={unit === candidate.unitNumber}
+                  className={unit === candidate.unitNumber
+                    ? `${css.unitOption} ${css.unitOptionSelected}`
+                    : css.unitOption}
+                  onClick={() => { setUnit(candidate.unitNumber) }}
+                >
+                  <span className={css.unitTitle}>{t('unit.label', { unit: candidate.unit })} {candidate.lessonTitle}</span>
+                  <span className={css.unitTheme}>{candidate.theme}</span>
                 </button>
               ))}
             </div>

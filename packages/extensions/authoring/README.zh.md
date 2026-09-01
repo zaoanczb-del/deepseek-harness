@@ -1,8 +1,27 @@
+---
+description: "Authoring 选择器与内置 LangMind 衍生 Markdown skill 说明，供组合新加坡华文教材和刊物请求的用户与维护者阅读。"
+kind: "package-reference"
+---
+
 # @deepseek-ai/dsh-client-ui-authoring
 
 [English](README.md) | 中文
 
-Authoring 插件拥有二十个内置 skill 及调用它们的 Web 选择器。通用 `story` skill 服务于「新朋友」「新天地」「新列车」教材目录；十四个专用 skill 复现 LangMind 的同步练习题型，通用 `practice` skill 则继续供用户手动调用。「好朋友」分别提供「欢乐故事」和「欢乐儿童」skill；「知识画报」提供带「哈比系列 / 动物寓言」选项的「故事园地」skill；「知识报」提供「故事空间」skill。Host 端在 `registerBundledSkills` 启用时把这些 skill 挂载到当前 agent preset 的作用域。随产品发布的 Standard preset 启用注册；Web bundle 用禁用注册的配置加载同一个包，使浏览器模块仍可发现，同时不增加全局 provider。
+## 概述
+
+Authoring 插件拥有二十一个内置 skill 及调用它们的 Web 选择器。通用 `story` skill 服务于「新朋友」「新天地」「新列车」教材目录；「新天地」还提供专用的「好品德好公民」skill。十四个专用 skill 复现 LangMind 的同步练习题型，通用 `practice` skill 则继续供用户手动调用。「好朋友」分别提供「欢乐故事」和「欢乐儿童」skill；「知识画报」提供带「哈比系列 / 动物寓言」选项的「故事园地」skill；「知识报」提供「故事空间」skill。Host 端在 `registerBundledSkills` 启用时把这些 skill 挂载到当前 agent preset 的作用域。随产品发布的 Standard preset 启用注册；Web bundle 用禁用注册的配置加载同一个包，使浏览器模块仍可发现，同时不增加全局 provider。
+
+## 目录
+
+- [使用本包](#use-this-package)
+- [开发备注](#dev-note)
+- [模型体验](#model-experience)
+- [已知限制与延期工作](#known-limitations-and-deferred-work)
+
+-----
+
+<a id="use-this-package"></a>
+## 使用本包
 
 浏览器端向 `conversation.input.left` 追加一个条目，并在渲染前查询当前会话的 skill。插件自有 skill 均不可用时，入口保持隐藏。点击入口会打开包含六种类型的模态弹窗。
 
@@ -10,25 +29,35 @@ Authoring 插件拥有二十个内置 skill 及调用它们的 Web 选择器。�
 
 故事确认后写入 `/story 帮我编写 <年级>年级第N课的故事`，并附上该课生字和生词。练习确认后写入专用 `/practice-*` 调用，以及 LangMind 的「生成内容、年级、课次」字段和该题型所需的生字、词语或两者。弹窗可从这些草稿元数据恢复练习类型、年级和课次。
 
+「新天地—好品德好公民」流程按课题和主题提供 LangMind 的九个 P3 单元，不显示年级或课次控件。确认后写入 `/new-world-moral-story`，并附上所选「单元标题」和「单元主题」。专用 skill 生成带学习目标、行动承诺和互动提问的四幅 Markdown 故事。该功能仅生成文字，不提供图片生成操作、提示词、服务或预览。
+
 三个刊物目录沿用 LangMind 子选项，不显示年级、课次或课文字词。「好朋友」提供「欢乐故事 / 欢乐儿童」；「知识画报」先选「故事园地」，再选「哈比系列 / 动物寓言」；「知识报」直接选择「故事空间」。确认后写入专用 skill token 以及刊物的可编辑默认请求：「欢乐故事」使用海边露营主题，「欢乐儿童」使用学校运动会中的团结合作主题，「知识画报」使用分享主题，「知识报」使用两个小学生之间的分享主题。
 
-弹窗可从草稿恢复已识别的教材练习和刊物 token，以及「知识画报」的故事类型。重新选择会替换插件生成的调用内容并保留用户提示词；取消、遮罩或 Escape 关闭弹窗且不写入。发送后由现有显式 skill 流水线解释 token，并且只注入所选 `SKILL.md`；插件不增加第二套调用协议。
+弹窗可从草稿恢复已识别的教材练习、「新天地」品德故事和刊物 token，包括所选品德单元及「知识画报」的故事类型。重新选择会替换插件生成的调用内容并保留用户提示词；取消、遮罩或 Escape 关闭弹窗且不写入。发送后由现有显式 skill 流水线解释 token，并且只注入所选 `SKILL.md`；插件不增加第二套调用协议。
 
 ## 配置
 
 `registerBundledSkills` 默认为 `true`。只需要浏览器 UI 的 Host 组合可设为 `false`。插件内置 provider 与项目和用户 skill 根目录相互隔离，也不会监听已打包文件。
 
+-----
+
+<a id="dev-note"></a>
+## 开发备注
+
+[插件自有的创作目录 Agent Note](../../../.agents/notes/implemented/feature/2026-08-24-authoring-mode-plugin.zh.md)记录了选择器、固定目录、草稿语法与专用 Markdown skill 为何归属同一个跨层插件。
+
+<a id="model-experience"></a>
 ## 模型体验
 
 ### 教材与刊物创作
 
 #### 模型看到的内容
 
-模型会看到用户消息中的原样调用和可编辑请求，以及所选 skill 的规范 `<skill_content>` 注入。课次请求包含所选年级、课次，以及当前任务所需的生字或词语；刊物请求包含所选 LangMind 内容，「知识画报」还包含故事类型，但不包含课次元数据。所有专用刊物和练习 skill 均输出 Markdown，不输出 LangMind 的 JSON 响应对象。
+模型会看到用户消息中的原样调用和可编辑请求，以及所选 skill 的规范 `<skill_content>` 注入。课次请求包含所选年级、课次，以及当前任务所需的生字或词语；「新天地」品德请求只包含所选单元标题和主题；刊物请求包含所选 LangMind 内容，「知识画报」还包含故事类型，但不包含课次元数据。所有专用品德、刊物和练习 skill 均输出 Markdown，不输出 LangMind 的 JSON 响应对象。
 
 #### Token 影响
 
-每次请求只增加一个所选 skill 的正文，专用练习和刊物 skill 不会把无关格式规则加入该次请求。生成的请求和可选的课文字词属于用户消息；打开弹窗和查询 skill 不增加模型 token。
+每次请求只增加一个所选 skill 的正文，专用品德、练习和刊物 skill 不会把无关格式规则加入该次请求。生成的请求和可选的课文字词属于用户消息；打开弹窗和查询 skill 不增加模型 token。
 
 #### KV Cache 影响
 
@@ -36,6 +65,8 @@ Authoring 插件拥有二十个内置 skill 及调用它们的 Web 选择器。�
 
 ## 已知限制与后续工作
 
+<a id="known-limitations-and-deferred-work"></a>
+
 - 故事选择只能从旧元数据语法恢复；当前自然语言故事请求不保留教材目录，因为模型不需要该信息。专用练习请求会保留足以完整恢复选择的元数据。
-- 刊物名称、子选项、默认请求和故事类型是浏览器端固定的产品内容；需要不同目录的部署仍需配置或 skill 元数据通道。
+- 品德单元、刊物名称、子选项、默认请求和故事类型是浏览器端固定的产品内容；需要不同目录的部署仍需配置或 skill 元数据通道。
 - skill 目录请求失败时，本次挂载会隐藏选择器；重新挂载会话或切换 preset 后会通过正常对话生命周期重试。

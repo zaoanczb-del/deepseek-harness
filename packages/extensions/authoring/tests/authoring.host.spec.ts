@@ -16,6 +16,7 @@ describe('authoring host plugin', () => {
       'good-friend-story',
       'knowledge-news-story',
       'knowledge-pictorial-story',
+      'new-world-moral-story',
       'practice',
       'practice-bian-zi-ce-yan',
       'practice-ci-yi-xuan-ze',
