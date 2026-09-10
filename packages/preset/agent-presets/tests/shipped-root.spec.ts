@@ -9,31 +9,34 @@
  * suite: the derived writable root is resolved in the constructor.
  */
 
-import { mkdtemp, readFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include, { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import * as yaml from 'js-yaml'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import AgentPresets, { SHIPPED_PRESET_ROOT, type Config } from '@deepseek-ai/dsh-agent-presets'
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures')
 const SYSTEM_ROOT = join(FIXTURES, 'system')
-const EDUCATION_PERSONA = 'You are an education-industry agent powered by the {{model}} model. Your working directory is {{cwd}}. You help teachers, curriculum designers, editors, and learners create and review educational content. Prioritize pedagogical accuracy, age-appropriate language, curriculum context, learner safety, and the user\'s requested learning objective and output format. Do not invent missing textbook facts when they materially affect the result; ask for the required information.'
 
+let home: string
 let previousHome: string | undefined
 
 beforeEach(async () => {
   previousHome = process.env.DSH_HOME
-  process.env.DSH_HOME = await mkdtemp(join(tmpdir(), 'dsh-shipped-root-'))
+  home = await mkdtemp(join(tmpdir(), 'dsh-shipped-root-'))
+  process.env.DSH_HOME = home
 })
 
-afterEach(() => {
+afterEach(async () => {
   if (previousHome === undefined) delete process.env.DSH_HOME
   else process.env.DSH_HOME = previousHome
+  await rm(home, { recursive: true, force: true })
 })
 
 /** Boot a roster with the shipped root left to the plugin's default. */
@@ -42,6 +45,7 @@ async function roster(config: Partial<Config> = {}): Promise<Context> {
   ctx.baseUrl = pathToFileURL(FIXTURES).href + '/'
   await ctx.plugin(Loader)
   ctx.loader.builtins.include = Include
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(AgentPresets, {
     default: 'standard',
     roots: [],
@@ -52,12 +56,40 @@ async function roster(config: Partial<Config> = {}): Promise<Context> {
   return ctx
 }
 
+interface ShippedEntry {
+  id?: unknown
+  disabled?: unknown
+  config?: unknown
+}
+
+/** Find one entry through the shipped composition's nested groups. */
+function findEntry(entries: unknown[], id: string): ShippedEntry | undefined {
+  for (const entry of entries) {
+    if (typeof entry !== 'object' || entry === null) continue
+    const candidate = entry as ShippedEntry
+    if (candidate.id === id) return candidate
+    if (Array.isArray(candidate.config)) {
+      const nested = findEntry(candidate.config, id)
+      if (nested !== undefined) return nested
+    }
+  }
+  return undefined
+}
+
+/** Read and validate one shipped preset's Cordis entry list. */
+async function shippedEntries(id: string): Promise<unknown[]> {
+  const source = await readFile(join(SHIPPED_PRESET_ROOT, id, 'agent.cordis.yml'), 'utf8')
+  const entries: unknown = yaml.load(source, { schema: entryListSchema })
+  if (!Array.isArray(entries)) throw new TypeError(`${id} preset must contain a Cordis entry list`)
+  return entries.map((entry: unknown) => entry)
+}
+
 describe('the shipped preset root', () => {
   it('supplies the built-in presets from a bare roster, healthy and system-trusted', async () => {
     const ctx = await roster({ includeUserRoot: false })
 
     const listed = await ctx.agentPresets.list()
-    expect(listed.map(preset => preset.id).sort()).toEqual(['cordis', 'education', 'minimal', 'ptc', 'standard'])
+    expect(listed.map(preset => preset.id).sort()).toEqual(['cordis', 'minimal', 'ptc', 'standard'])
     expect(listed.every(preset => preset.trust === 'system')).toBe(true)
     // Not `broken === undefined`: health asks whether each row's package is
     // installed above the base, and the shipped rows name packages the
@@ -97,10 +129,8 @@ describe('the shipped preset root', () => {
   })
 
   it('enables web_fetch in each tool-bearing Web app preset', async () => {
-    for (const id of ['cordis', 'education', 'ptc', 'standard']) {
-      const source = await readFile(join(SHIPPED_PRESET_ROOT, id, 'agent.cordis.yml'), 'utf8')
-      const entries: unknown = yaml.load(source, { schema: entryListSchema })
-      if (!Array.isArray(entries)) throw new TypeError(`${id} preset must contain a Cordis entry list`)
+    for (const id of ['cordis', 'ptc', 'standard']) {
+      const entries = await shippedEntries(id)
       const toolWeb: unknown = entries.find((entry: unknown) =>
         typeof entry === 'object' && entry !== null && 'id' in entry && entry.id === 'tool-web')
       if (typeof toolWeb !== 'object' || toolWeb === null || !('config' in toolWeb)
@@ -111,28 +141,14 @@ describe('the shipped preset root', () => {
     }
   })
 
-  it('keeps Education equal to Standard except for its owned persona', async () => {
-    const readEntries = async (id: string): Promise<Record<string, unknown>[]> => {
-      const source = await readFile(join(SHIPPED_PRESET_ROOT, id, 'agent.cordis.yml'), 'utf8')
-      const entries: unknown = yaml.load(source, { schema: entryListSchema })
-      if (!Array.isArray(entries) || entries.some(entry => typeof entry !== 'object' || entry === null)) {
-        throw new TypeError(`${id} preset must contain a Cordis entry list`)
-      }
-      return entries as Record<string, unknown>[]
+  it('omits the general workflow tool only from PTC while retaining Ralph infrastructure', async () => {
+    const ptc = await shippedEntries('ptc')
+    expect(findEntry(ptc, 'tool-workflow')?.disabled).toBe(true)
+    expect(findEntry(ptc, 'workflow-worker-thread')?.disabled).not.toBe(true)
+    expect(findEntry(ptc, 'tool-ralph')?.disabled).not.toBe(true)
+
+    for (const id of ['standard', 'cordis']) {
+      expect(findEntry(await shippedEntries(id), 'tool-workflow')?.disabled, id).not.toBe(true)
     }
-    const standard = await readEntries('standard')
-    const education = await readEntries('education')
-    const normalized = structuredClone(education)
-    const educationPersona = normalized.find(entry => entry.id === 'persona')
-    const standardPersona = standard.find(entry => entry.id === 'persona')
-    expect(educationPersona).toMatchObject({
-      name: '@deepseek-ai/dsh-persona',
-      config: { text: EDUCATION_PERSONA },
-    })
-    if (educationPersona === undefined || standardPersona === undefined) {
-      throw new TypeError('standard and education presets must contain persona rows')
-    }
-    educationPersona.config = standardPersona.config
-    expect(normalized).toEqual(standard)
   })
 })
