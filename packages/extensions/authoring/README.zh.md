@@ -25,6 +25,8 @@ Authoring 插件拥有二十一个内置 skill 及调用它们的 Web 选择器�
 
 浏览器端向 `conversation.input.left` 追加一个条目，并在渲染前查询当前会话的 skill。插件自有 skill 均不可用时，入口保持隐藏。点击入口会打开包含六种类型的模态弹窗。
 
+浏览器端还向 `conversation.session.header.utilities` 追加 Session 日志入口。该入口打开只读模态弹窗，显示当前 Session 已加载事件窗口中每行的原始 `type`、`seq`、`time` 和可展开的 `data`；更早页面按需加载，历史 Assistant 分片会保留其传输标记。
+
 「新朋友」「新天地」「新列车」使用课次流程。选择教材目录时默认第一年级和第一课；选择「练习题」时还默认第一个可用 LangMind 题型及其支持的第一个年级。「编写故事」显示对应目录的普通华文和高级华文年级。「练习题」先显示与该目录年级范围相交的全部 LangMind 题型，每行最多五个，再把年级选项限制到所选题型的适用范围。完整题型为「选拼音、配词、数笔画、填写汉字、填写拼音、组词成句、完成句子、选择音节、辨字测验、词义选择、词语搭配、词语选择、句子选择、拼音选择」。选择年级后显示 `ezhishi_words.csv` 中该年级的全部课次。
 
 故事确认后写入 `/story 帮我编写 <年级>年级第N课的故事`，并附上该课生字和生词。练习确认后写入专用 `/practice-*` 调用，以及 LangMind 的「生成内容、年级、课次」字段和该题型所需的生字、词语或两者。弹窗可从这些草稿元数据恢复练习类型、年级和课次。
@@ -45,6 +47,8 @@ Authoring 插件拥有二十一个内置 skill 及调用它们的 Web 选择器�
 ## 开发备注
 
 [插件自有的创作目录 Agent Note](../../../.agents/notes/implemented/feature/2026-08-24-authoring-mode-plugin.zh.md)记录了选择器、固定目录、草稿语法与专用 Markdown skill 为何归属同一个跨层插件。
+
+[Authoring Session 日志查看器 Agent Note](../../../.agents/notes/implemented/feature/2026-09-03-authoring-session-log-viewer.zh.md)记录了该入口为何复用现有 Session 事件源，以及为何只在 Header slot 中覆盖下载入口。
 
 <a id="model-experience"></a>
 ## 模型体验
@@ -70,3 +74,4 @@ Authoring 插件拥有二十一个内置 skill 及调用它们的 Web 选择器�
 - 故事选择只能从旧元数据语法恢复；当前自然语言故事请求不保留教材目录，因为模型不需要该信息。专用练习请求会保留足以完整恢复选择的元数据。
 - 品德单元、刊物名称、子选项、默认请求和故事类型是浏览器端固定的产品内容；需要不同目录的部署仍需配置或 skill 元数据通道。
 - skill 目录请求失败时，本次挂载会隐藏选择器；重新挂载会话或切换 preset 后会通过正常对话生命周期重试。
+- 查看器显示当前 Client 事件窗口，而不是另行读取完整日志；更早历史通过 Session face 分页，历史 Assistant 分片显示为 `chunkrow/*` 行。

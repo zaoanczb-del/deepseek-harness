@@ -5,4 +5,5 @@
   - menuitem "PTC mode All Standard mode capabilities, with tools exposed through the PTC mode SDK so the model can combine multi-step operations in one TypeScript program."
   - menuitem "Minimal mode Two-tool coding agent with persistent bash and str_replace_editor."
   - menuitem "Creator mode Built for creating custom agent presets, with all Standard mode capabilities plus runtime inspection, plugin experiments, and preset-authoring guidance."
+  - menuitem "Education mode Full education-industry agent for textbook and publication authoring, with Standard mode tools and skills."
   - menuitem "Refusing mode Resolves, then refuses to start."

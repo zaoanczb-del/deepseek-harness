@@ -22,6 +22,7 @@ import AgentPresets, { SHIPPED_PRESET_ROOT, type Config } from '@deepseek-ai/dsh
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures')
 const SYSTEM_ROOT = join(FIXTURES, 'system')
+const EDUCATION_PERSONA = 'You are an education-industry agent powered by the {{model}} model. Your working directory is {{cwd}}. You help teachers, curriculum designers, editors, and learners create and review educational content. Prioritize pedagogical accuracy, age-appropriate language, curriculum context, learner safety, and the user\'s requested learning objective and output format. Do not invent missing textbook facts when they materially affect the result; ask for the required information.'
 
 let previousHome: string | undefined
 
@@ -56,7 +57,7 @@ describe('the shipped preset root', () => {
     const ctx = await roster({ includeUserRoot: false })
 
     const listed = await ctx.agentPresets.list()
-    expect(listed.map(preset => preset.id).sort()).toEqual(['cordis', 'minimal', 'ptc', 'standard'])
+    expect(listed.map(preset => preset.id).sort()).toEqual(['cordis', 'education', 'minimal', 'ptc', 'standard'])
     expect(listed.every(preset => preset.trust === 'system')).toBe(true)
     // Not `broken === undefined`: health asks whether each row's package is
     // installed above the base, and the shipped rows name packages the
@@ -96,7 +97,7 @@ describe('the shipped preset root', () => {
   })
 
   it('enables web_fetch in each tool-bearing Web app preset', async () => {
-    for (const id of ['cordis', 'ptc', 'standard']) {
+    for (const id of ['cordis', 'education', 'ptc', 'standard']) {
       const source = await readFile(join(SHIPPED_PRESET_ROOT, id, 'agent.cordis.yml'), 'utf8')
       const entries: unknown = yaml.load(source, { schema: entryListSchema })
       if (!Array.isArray(entries)) throw new TypeError(`${id} preset must contain a Cordis entry list`)
@@ -108,5 +109,30 @@ describe('the shipped preset root', () => {
       }
       expect(toolWeb.config.fetch, id).toBe(true)
     }
+  })
+
+  it('keeps Education equal to Standard except for its owned persona', async () => {
+    const readEntries = async (id: string): Promise<Record<string, unknown>[]> => {
+      const source = await readFile(join(SHIPPED_PRESET_ROOT, id, 'agent.cordis.yml'), 'utf8')
+      const entries: unknown = yaml.load(source, { schema: entryListSchema })
+      if (!Array.isArray(entries) || entries.some(entry => typeof entry !== 'object' || entry === null)) {
+        throw new TypeError(`${id} preset must contain a Cordis entry list`)
+      }
+      return entries as Record<string, unknown>[]
+    }
+    const standard = await readEntries('standard')
+    const education = await readEntries('education')
+    const normalized = structuredClone(education)
+    const educationPersona = normalized.find(entry => entry.id === 'persona')
+    const standardPersona = standard.find(entry => entry.id === 'persona')
+    expect(educationPersona).toMatchObject({
+      name: '@deepseek-ai/dsh-persona',
+      config: { text: EDUCATION_PERSONA },
+    })
+    if (educationPersona === undefined || standardPersona === undefined) {
+      throw new TypeError('standard and education presets must contain persona rows')
+    }
+    educationPersona.config = standardPersona.config
+    expect(normalized).toEqual(standard)
   })
 })

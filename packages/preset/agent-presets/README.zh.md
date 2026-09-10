@@ -31,7 +31,7 @@ kind: "package-reference"
 
 从 preset 组装的会话会运行该 preset `agent.cordis.yml` 所列插件：它的工具、提示词段落与 skill。加入同一 preset 的会话共享一份已安装的组装，且各会话的状态彼此隔离。子 agent（subagent）会加入其父方的组装，因此它看到的工具与提示词段落和创建它的 agent 相同。
 
-可选的 preset 来自两处：本包 `presets/` 下随包交付的 preset，以及你自己放在 `<dshHome>/.agent-presets` 下的 preset。选择器会展示每个 preset 的显示名与描述；组装无法加载的 preset 会连同原因一起列出而不是被隐藏，因此你能看到该修什么或删什么。
+可选的 preset 来自两处：本包 `presets/` 下随包交付的 preset，以及你自己放在 `<dshHome>/.agent-presets` 下的 preset。随附的 `education` preset 携带 Standard 的完整工具和 skill 组装，并通过教育行业 persona 统一拥有教学准确性、年龄适宜性、课程语境、学习者安全、学习目标、输出格式及教材事实缺失时的处理规则。选择器会本地化每个随附 preset 的显示名与描述，而用户创作的行保留文件元数据；组装无法加载的 preset 会连同原因一起列出而不是被隐藏，因此你能看到该修什么或删什么。
 
 ### 最小配置
 

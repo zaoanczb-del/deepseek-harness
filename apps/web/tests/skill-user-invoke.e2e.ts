@@ -75,6 +75,7 @@ const REPLAY_ENTRY: ReplayEntry = {
   ],
 }
 const REPLAY: ReplayOverrideDoc = [REPLAY_ENTRY, REPLAY_ENTRY, REPLAY_ENTRY, REPLAY_ENTRY]
+const EDUCATION_PERSONA = 'You are an education-industry agent powered by the deepseek-v4-flash model.'
 
 /** Collapse the blank lines injected between contenteditable paragraphs. */
 function composerDraft(text: string): string {
@@ -95,6 +96,7 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
     scaffold = await launchWebScaffold({
       replayFixture: join(replayDir, 'override-only.jsonl'),
       replayOverride,
+      agentPresets: { roots: [], default: 'education' },
       // Paced replay keeps the timing-derived chrome (TTFT / tok/s) present
       // deterministically; instant playback races it in and out of the golden.
       paceMs: 10,
@@ -149,7 +151,10 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
     const injectionFlow = page.locator('[data-chat-flow-kind="context"]').filter({ hasText: SKILL_NAME })
     await injectionFlow.waitFor({ state: 'attached', timeout: 15_000 })
     await page.getByText('USER_INVOKE_REPLY', { exact: false }).first().waitFor({ timeout: 20_000 })
-    await settled
+    const sessionId = await settled
+    const system = scaffold.ctx.agents.get(sessionId)?.session.requestHeader()?.system
+    expect(system).toContain(EDUCATION_PERSONA)
+    expect(system).not.toContain('You are a coding agent powered by')
     const process = page.getByRole('button', { name: 'Thought for a while', exact: true })
     await process.waitFor({ state: 'visible', timeout: 10_000 })
     await expandOwningTurnProcess(page, injectionFlow)

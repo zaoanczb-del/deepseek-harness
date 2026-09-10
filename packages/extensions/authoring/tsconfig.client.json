@@ -11,6 +11,7 @@
   ],
   "references": [
     { "path": "../../api/remotes/tsconfig.client.json" },
+    { "path": "../../api/session-controller/tsconfig.client.json" },
     { "path": "../../../vendor/cordis" },
     { "path": "../../client/locale" },
     { "path": "../../client/ui-conversation" },

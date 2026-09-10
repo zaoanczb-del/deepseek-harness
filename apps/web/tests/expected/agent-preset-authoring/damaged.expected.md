@@ -61,6 +61,16 @@
       - 'button "复制: 创造模式"':
         - img
         - text: 复制
+    - listitem:
+      - 'button "设为默认: 教育模式"':
+        - text: 教育模式 内置 面向教育行业的完整 Agent，支持教材与刊物创作，并提供标准模式的工具和 skill。
+        - code: education
+      - 'button "查看: 教育模式"':
+        - img
+        - text: 查看
+      - 'button "复制: 教育模式"':
+        - img
+        - text: 复制
   - heading "自定义" [level=3]
   - list:
     - listitem:

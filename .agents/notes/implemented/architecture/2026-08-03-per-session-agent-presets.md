@@ -25,6 +25,8 @@ Model routing stays out of presets. `installAgentLlmTarget` is already the per-a
 
 The presets the deployment ships are the directories under `packages/preset/agent-presets/presets/`; the roster is that listing, not a list restated here.
 
+The shipped `education` preset duplicates the complete Standard composition and changes only its persona. The persona owns the education identity and durable pedagogical rules; Authoring remains a reusable catalog of UI actions and skills, so mounting it does not implicitly change a non-education agent's identity. There is no preset inheritance layer, and keeping the full composition in one file makes the deployed capabilities directly inspectable. Focused coverage normalizes the persona row and requires every other Education row to remain equal to Standard.
+
 Mounting is per-session by default. Measured cost for a twelve-row composition is ~3ms and ~600KB per session, so isolation is the cheaper default than any sharing scheme, and a preset authored by a user or by an agent then has the smallest possible blast radius. A preset that genuinely owns an expensive singleton opts into sharing with Cordis's own `isolate` vocabulary: a named realm label is process-global, so two subtrees naming the same label resolve one instance.
 
 Which preset an unnamed session gets is a user setting (`agent-presets.default`) layered over the composition's own `default`, which becomes the `base`. Both layers are needed: the composition value is what a deployment ships and must keep working with no settings provider at all, and the setting is what a person changes without editing a `cordis.yml` they may not own.

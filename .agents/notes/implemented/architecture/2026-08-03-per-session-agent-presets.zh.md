@@ -25,6 +25,8 @@ Status: implemented
 
 部署交付哪些 preset，取决于 `packages/preset/agent-presets/presets/` 下有哪些目录；清单是那份目录列表，而不是在此另抄一份。
 
+随附的 `education` preset 复制完整 Standard 组装，只改变 persona。教育身份与持久教学规则归 persona 所有；Authoring 仍是可复用的 UI 操作与 skill 目录，因此挂载它不会隐式改变非教育 agent 的身份。本层没有 preset 继承机制，而把完整组装保留在一个文件中，可直接检查部署后的能力。聚焦覆盖会规范化 persona 行，并要求 Education 的其他每一行都与 Standard 保持一致。
+
 挂载默认按会话进行。实测一份十二行组装每会话约 3ms、约 600KB，因此隔离比任何共享方案都更划算；而由用户或 agent 写出的 preset 也因此拥有尽可能小的影响面。确实自带昂贵单例的 preset，可以用 Cordis 自身的 `isolate` 词汇显式选择共享：命名 realm 的 label 是进程级全局的，因此两棵子树只要写同一个 label 就解析到同一个实例。
 
 未指名 preset 的会话拿到哪一个，是一项用户设置（`agent-presets.default`），叠在组装自身的 `default` 之上——后者成为 `base`。两层都需要：组装里的值是部署交付的东西，在完全没有 settings 提供方时也必须照常工作；而设置是让人不必去改一份可能并不属于自己的 `cordis.yml` 就能调整的东西。

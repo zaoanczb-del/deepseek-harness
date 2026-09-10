@@ -31,7 +31,7 @@ Mount this package in a composition that should give each agent session its own 
 
 A session composed from a preset runs the plugins that preset's `agent.cordis.yml` names: its tools, prompt sections, and skills. Sessions joined to the same preset share one installed composition, and each session's state stays separate. A child agent (subagent) joins its parent's composition, so it sees the same tools and prompt sections as the agent that spawned it.
 
-The presets you can choose from come from two places: the presets shipped inside this package under `presets/`, and your own presets under `<dshHome>/.agent-presets`. The picker shows each preset's display name and description; a preset whose composition cannot load is listed with the reason rather than hidden, so you can see what to fix or delete.
+The presets you can choose from come from two places: the presets shipped inside this package under `presets/`, and your own presets under `<dshHome>/.agent-presets`. The shipped `education` preset carries the complete Standard tool and skill composition with an education-industry persona that owns its pedagogical accuracy, age suitability, curriculum context, learner safety, learning-objective, output-format, and missing-textbook-fact rules. The picker localizes every shipped preset's display name and description, while user-authored rows keep their file metadata; a preset whose composition cannot load is listed with the reason rather than hidden, so you can see what to fix or delete.
 
 ### Minimal configuration
 

@@ -24,6 +24,7 @@ import { expandOwningTurnProcess, newEnglishPage, saveFailureShot } from './supp
 const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/navigation-panes', import.meta.url))
 const SEED = join(SNAPSHOT_DIR, 'session.jsonl')
 const TRAJECTORY_EXPECTED = join(SNAPSHOT_DIR, 'trajectory.expected.md')
+const SESSION_LOG_EXPECTED = join(SNAPSHOT_DIR, 'session-log.expected.md')
 const SEARCH_EXPECTED = join(SNAPSHOT_DIR, 'search-results.expected.md')
 const TERMINAL_EXPECTED = join(SNAPSHOT_DIR, 'terminal-card.expected.md')
 const MODE = webSnapshotMode()
@@ -282,8 +283,8 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
     await details.getByRole('button', { name: 'Close details' }).click()
   }, 60_000)
 
-  it.skipIf(MODE === 'record')('downloads through the Session Header and /export with one dialog', async () => {
-    onTestFailed(() => saveFailureShot(page, 'web-e2e-navigation-export'))
+  it.skipIf(MODE === 'record')('opens the Session log viewer and keeps /export explicit', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-navigation-session-log'))
     await ensureSeedOpen(page)
     const exportButton = page.getByRole('button', { name: 'Session log' })
     expect(await exportButton.isDisabled()).toBe(false)
@@ -292,27 +293,26 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
       exportButton.boundingBox(), header.boundingBox(),
     ])
     if (buttonBox === null || headerBox === null) {
-      throw new Error('Session Header export geometry is unavailable')
+      throw new Error('Session Header log geometry is unavailable')
     }
     expect(headerBox.x + headerBox.width - (buttonBox.x + buttonBox.width)).toBeLessThanOrEqual(32)
-    const responsePromise = page.waitForResponse(response =>
-      response.request().method() === 'HEAD'
-      && new URL(response.url()).pathname === '/api/session.export', { timeout: 30_000 })
-    const downloadPromise = page.waitForEvent('download', { timeout: 30_000 })
     await exportButton.click()
-    const response = await responsePromise
-    expect(response.status()).toBe(200)
-    const download = await downloadPromise
-    expect(download.suggestedFilename()).toMatch(/^dsh-session-.+\.zip$/)
-    const dialog = page.getByRole('dialog', { name: 'Session download started' })
+    const dialog = page.getByRole('dialog', { name: 'Session log' })
     await dialog.waitFor({ timeout: 30_000 })
-    // The real host streamed the ZIP; its root entry is the persisted log
-    // text verbatim (the assembled seam: real route, real persistence read).
-    const files = unzipSync(await readFile(await download.path()))
-    expect(Object.keys(files)).toEqual(['session.jsonl'])
-    const content = strFromU8(files['session.jsonl'] as Uint8Array)
-    expect(content.split('\n')[0]).toContain(SEED_ID)
-    expect(content).toContain('FIRST_DONE')
+    const rows = dialog.getByRole('list', { name: 'Session log events' })
+    await expect.poll(() => rows.textContent(), { timeout: 10_000 }).toContain('turn/start')
+    await expect.poll(() => rows.textContent(), { timeout: 10_000 }).toContain('seq 1')
+    await expect.poll(() => rows.textContent(), { timeout: 10_000 }).toContain('time ')
+    const sessionLogSnapshot = (await captureStableAria(
+      page,
+      '[role="dialog"] [aria-label="Session log events"] > li:first-child',
+      scaffold.workspaceCwd,
+    )).replace(/time \d+/gu, 'time {{eventTime}}')
+    await compareOrRefreshGolden(SESSION_LOG_EXPECTED, sessionLogSnapshot, MODE)
+    const doneSummary = rows.locator('summary').filter({ hasText: 'FIRST_DONE' }).first()
+    await doneSummary.click()
+    const doneDetails = doneSummary.locator('xpath=..')
+    await expect.poll(() => doneDetails.getAttribute('open'), { timeout: 10_000 }).toBe('')
     await dialog.getByText('Close', { exact: true }).click()
 
     const observer = await newEnglishPage(browser)
@@ -341,7 +341,7 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
       await page.getByRole('option', { name: /export/u }).waitFor({ timeout: 10_000 })
       await input.press('Enter')
       const slashDownload = await slashDownloadPromise
-      expect(slashDownload.suggestedFilename()).toBe(download.suggestedFilename())
+      expect(slashDownload.suggestedFilename()).toMatch(/^dsh-session-.+\.zip$/)
       const slashFiles = unzipSync(await readFile(await slashDownload.path()))
       const slashContent = strFromU8(slashFiles['session.jsonl'] as Uint8Array)
       const slashEvents = parseSessionLog(slashContent)
@@ -350,9 +350,6 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
       const exportDone = slashEvents.find(event =>
         event.type === 'command/done' && event.data.commandId === exportRun.data.commandId)
       expect(exportDone?.type).toBe('command/done')
-      await page.getByRole('dialog', { name: 'Session download started' }).waitFor({ timeout: 30_000 })
-      await page.getByRole('dialog', { name: 'Session download started' })
-        .getByText('Close', { exact: true }).click()
       await observer.getByText('Session log download requested.', { exact: true }).waitFor({ timeout: 30_000 })
       expect(observerDownloads).toBe(0)
       expect(await observer.getByRole('dialog', { name: 'Session download started' }).count()).toBe(0)
@@ -503,7 +500,7 @@ describe('web e2e: navigation & panes over a rich seeded session', () => {
 
   it.skipIf(MODE === 'record')('keeps the recorded fixture inventory exact', async () => {
     await assertFixtureInventory(SNAPSHOT_DIR, [
-      'session.jsonl', 'search-results.expected.md', 'trajectory.expected.md',
+      'session.jsonl', 'search-results.expected.md', 'session-log.expected.md', 'trajectory.expected.md',
       'terminal-card.expected.md',
     ])
   })

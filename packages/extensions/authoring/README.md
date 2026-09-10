@@ -25,6 +25,8 @@ The authoring plugin owns twenty-one bundled skills and the Web selector that in
 
 The browser half appends one entry to `conversation.input.left` and lists the active session's skills before rendering. It stays hidden when none of the plugin-owned skills is available. Activating it opens a modal with six content types.
 
+The browser half also contributes the Session log action to `conversation.session.header.utilities`. It opens a read-only modal for the current Session's loaded event window, showing each row's raw `type`, `seq`, `time`, and expandable `data`; older pages load on demand, and packed historical Assistant chunks retain their transport marker.
+
 New Friends, New World, and New Train use the lesson workflow. Selecting a lesson catalog defaults the first grade and lesson; selecting Practice also defaults the first available LangMind type and its first supported grade. Story reveals the selected catalog's ordinary and Higher Chinese grades. Practice first reveals every LangMind type whose supported grades intersect the catalog, with at most five types per row, then limits the grade choices to that type's range. The complete roster is Choose Pinyin, Match Words, Count Strokes, Fill in Characters, Fill in Pinyin, Arrange Words into Sentences, Complete Sentences, Choose Syllables, Character Discrimination Quiz, Word Meaning Choice, Word Collocation, Word Choice, Sentence Choice, and Pinyin Choice. Choosing a grade reveals every lesson present for that grade in `ezhishi_words.csv`.
 
 Story confirmation writes `/story 帮我编写 <grade>年级第N课的故事` followed by the lesson characters and words. Practice confirmation writes a dedicated `/practice-*` invocation followed by LangMind's `生成内容`, `年级`, `课次`, and the exact vocabulary fields required by that type: characters, words, or both. Reselecting restores the practice type, grade, and lesson from this draft metadata.
@@ -45,6 +47,8 @@ The dialog restores recognized textbook-practice, New World moral, and publicati
 ## Dev Note
 
 The [plugin-owned authoring catalogs Agent Note](../../../.agents/notes/implemented/feature/2026-08-24-authoring-mode-plugin.md) records why the selector, fixed catalogs, draft syntax, and dedicated Markdown skills stay under one tier-spanning plugin.
+
+The [authoring Session log viewer Agent Note](../../../.agents/notes/implemented/feature/2026-09-03-authoring-session-log-viewer.md) records why this action uses the existing Session event source and shadows the download action only for the header slot.
 
 <a id="model-experience"></a>
 ## Model Experience
@@ -70,3 +74,4 @@ Append-only: the selected skill content and user message follow the reusable con
 - Story selections are reconstructed only from legacy metadata syntax; the current natural-language story request does not retain the textbook catalog because the model does not need it. Dedicated practice requests retain enough metadata for full restoration.
 - Moral units, publication names, options, default requests, and story kinds are fixed product content in the browser half; deployments needing a different catalog require a config or skill-metadata channel.
 - A failed skill catalog request hides the selector for that mount; another session mount or preset switch retries through the normal conversation lifecycle.
+- The viewer exposes the current Client event window rather than a separate complete-log read; older history is paged through the Session face, and historical packed Assistant runs are shown as `chunkrow/*` rows.
