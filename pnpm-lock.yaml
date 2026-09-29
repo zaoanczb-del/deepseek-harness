@@ -1798,9 +1798,6 @@ importers:
       '@deepseek-ai/dsh-client-ui-attachment':
         specifier: workspace:^
         version: link:../../client/ui-attachment
-      '@deepseek-ai/dsh-client-ui-authoring':
-        specifier: workspace:^
-        version: link:../../extensions/authoring
       '@deepseek-ai/dsh-client-ui-brand-official':
         specifier: workspace:^
         version: link:../../client/ui-brand-official
@@ -10948,9 +10945,6 @@ importers:
       '@deepseek-ai/dsh-brand':
         specifier: workspace:^
         version: link:../../packages/util/brand
-      '@deepseek-ai/dsh-client-ui-authoring':
-        specifier: workspace:^
-        version: link:../../packages/extensions/authoring
       '@deepseek-ai/dsh-code-runtime':
         specifier: workspace:^
         version: link:../../packages/code-runtime/code-runtime

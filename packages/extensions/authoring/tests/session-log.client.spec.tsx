@@ -99,18 +99,18 @@ function mount(options: {
 afterEach(cleanup)
 
 describe('Session log projection', () => {
-  it('projects both ordinary and packed entries without changing their raw fields', () => {
+  it('projects ordinary and transient entries without changing their raw fields', () => {
     const entries: SessionEventLikeEntry[] = [
       event('turn/start', 3, { turn: 1 }, 10),
       {
-        type: 'chunks',
+        type: 'transient',
         event: { type: 'chunkrow/text', seq: 4, time: 11, data: { text: 'hi' } } as never,
       },
     ]
 
     expect(sessionLogRows(entries)).toEqual([
       { source: 'event', type: 'turn/start', seq: 3, time: 10, data: { turn: 1 } },
-      { source: 'chunks', type: 'chunkrow/text', seq: 4, time: 11, data: { text: 'hi' } },
+      { source: 'transient', type: 'chunkrow/text', seq: 4, time: 11, data: { text: 'hi' } },
     ])
     expect(formatSessionLogTime(10)).toBe('10 (1970-01-01T00:00:00.010Z)')
   })

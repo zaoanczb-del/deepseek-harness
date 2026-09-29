@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>从 Session 历史到聊天窗体</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+  <script src="../assets/lesson.js" defer></script>
+</head>
+<body><main>
+  <p class="eyebrow">Lesson 0002 · 约 15 分钟</p>
+  <h1>从 Session 历史到聊天窗体</h1>
+  <p class="win">完成本课后，你能从用户切换 Session 开始，一路追踪到 <code>UserMessageNodeView</code> 或 <code>AssistantNodeView</code> 的 React 渲染。</p>
+  <nav class="lesson-nav"><a href="#open">打开</a><a href="#host">Host</a><a href="#client">Client</a><a href="#assembly">组装</a><a href="#render">渲染</a><a href="../reference/session-history-to-window.html">速查表</a></nav>
+  <h2 id="open">一、选择 Session 就是打开信号</h2>
+  <p>Client Session service 观察列表中的 <code>current</code>。当前 Session 变化后，<code>followCurrent()</code> 取得稳定的 <code>SessionBinding</code> 并调用 <code>session.open()</code>。open 创建一个按 Session address 绑定的 <code>SessionEventStream</code>。</p>
+  <h2 id="host">二、Host 取得一个一致历史 cut</h2>
+  <p><code>SessionHistoryController.follow()</code> 先安装实时监听器，再调用 <code>ctx.sessionQuery.observeSession()</code>。查询优先使用 live Session；若 Session 是冷的，则从 persistence 恢复一个未挂入 store 的 prepared Session。两条路径都返回固定 cursor、连续 events、header 和 projections。</p>
+  <p>Opening snapshot 包含尾部事件页、<code>hasMore</code>、cursor、投影 baseline，以及可选的在途 Assistant baseline。监听器先装、snapshot 后读，因此读 snapshot 期间新到的事件会进入 buffer，不会落在缝里。</p>
+  <h2 id="client">三、Client 把网络流变成连续窗口</h2>
+  <p><code>SessionEventStream</code> 继承 Gateway 的 <code>RemoteJournalStream</code>，校验每条 wire event 的 V3 envelope 与连续 seq。opening 变成 <code>replace</code>，旧页变成 <code>prepend</code>，新事件变成 <code>append</code>。断线后按 cursor 追赶；出现缺口时用 tail page 修复。</p>
+  <p>Session 对象把这些变化写入 <code>MutableSessionEventSource</code>。这个 source 用 concat tree 保存窗口，使尾部 append 和头部 prepend 不必每次复制整份历史；订阅读取 snapshot 时才物化数组。</p>
+  <h2 id="assembly">四、原始事件还不是聊天节点</h2>
+  <p><code>BoundConversation</code> 订阅事件窗口，再交给 <code>ConversationNodeAssembler</code>。Assembler 通过可注册 Definition 识别事件：</p>
+  <ul>
+    <li><code>user/message</code> 形成 user、steering 或 context 节点。</li>
+    <li><code>step/start</code> 建立 Assistant step context。</li>
+    <li><code>assistant/live-chunk</code> 增量更新该 step。</li>
+    <li><code>assistant/message</code> 结算为持久 Assistant 节点。</li>
+    <li><code>tool/call</code> 与 <code>tool/result</code> 合成工具节点。</li>
+  </ul>
+  <p>Chat snapshot builder 最终生成 <code>{ order, nodes, timeline, navigation }</code>。高频 token chunk 按 animation frame 合并发布；持久节点和结构变化立即发布。</p>
+  <h2 id="render">五、React 只消费 ChatSnapshot</h2>
+  <p><code>ChatView</code> 用 <code>useChat()</code> 订阅 ChatSnapshot，遍历 <code>order</code>。每个 key 进入 <code>ChatNodeSeat</code>；Seat 根据 <code>node.kind</code> 交给 keyed slot，例如 user → <code>UserMessageNodeView</code>，assistant-step → <code>AssistantNodeView</code>。因此 UI 组件无需认识 Session persistence、RPC 或事件缺口。</p>
+  <section class="quiz">
+    <h2>快速检索练习</h2>
+    <p>用户点击“加载更早”后，新的历史应该怎样进入现有窗口？</p>
+    <button onclick="lessonAnswer('q2',true,'答对：旧页 prepend，并保持已有节点身份。','再想想：这是历史头部扩展。')">头部追加</button>
+    <button onclick="lessonAnswer('q2',false,'答对：旧页 prepend，并保持已有节点身份。','再想想：这是历史头部扩展。')">尾部追加</button>
+    <p id="q2" class="answer" aria-live="polite"></p>
+  </section>
+  <h2>建议追踪的一个事件</h2>
+  <pre><code>SessionEvent&lt;'user/message'&gt;
+→ SessionEventEntry
+→ SessionEventLikeEntry
+→ MutableSessionEventSource.append/replace
+→ messageDefinition.match/start
+→ ChatSnapshot.nodes
+→ ChatNodeSeat
+→ UserMessageNodeView</code></pre>
+  <p>先按这条最短路径读源码，再追 Assistant streaming；遇到任何一个交接点不清楚，可以把类型名或方法名发给我继续拆解。</p>
+  <p class="source-line">主要来源：Session Query、Session Controller、UI Conversation 与 UI Chat 当前源码和 README。</p>
+</main></body></html>

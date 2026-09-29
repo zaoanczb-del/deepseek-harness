@@ -152,7 +152,9 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
     await injectionFlow.waitFor({ state: 'attached', timeout: 15_000 })
     await page.getByText('USER_INVOKE_REPLY', { exact: false }).first().waitFor({ timeout: 20_000 })
     const sessionId = await settled
-    const system = scaffold.ctx.agents.get(sessionId)?.session.requestHeader()?.system
+    const system = scaffold.ctx.agents.get(sessionId)?.session.deriveMessages()
+      .find(message => message.role === 'system')
+      ?.content.flatMap(block => block.type === 'text' ? [block.text] : []).join('')
     expect(system).toContain(EDUCATION_PERSONA)
     expect(system).not.toContain('You are a coding agent powered by')
     const process = page.getByRole('button', { name: 'Thought for a while', exact: true })

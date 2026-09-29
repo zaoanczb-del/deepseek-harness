@@ -32,7 +32,8 @@ const DEFAULT_TYPE = '新朋友'
 const DEFAULT_SKILL: AuthoringSkill = 'story'
 
 /** Pick a bundled catalog choice, then write its dedicated invocation into the draft. */
-export function AuthoringModeSelect({ sessionId, input, inputActions, listModes, t }: AuthoringModeSelectProps) {
+export function AuthoringModeSelect({ sessionId, useInput, inputActions, listModes, t }: AuthoringModeSelectProps) {
+  const input = useInput(state => state)
   const [open, setOpen] = useState(false)
   const [availableSkills, setAvailableSkills] = useState<readonly AuthoringSkill[] | undefined>(undefined)
   const [type, setType] = useState<string | undefined>(undefined)

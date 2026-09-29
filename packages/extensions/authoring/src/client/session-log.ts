@@ -11,7 +11,6 @@ export interface SessionLogRow {
 
 /**
  * Project transport entries into the stable raw fields shown in the viewer.
- * Packed historical Assistant runs retain their `chunks` source marker.
  * @param entries - current contiguous Session event window.
  * @returns rows in the source order, which is ascending by Session sequence.
  */

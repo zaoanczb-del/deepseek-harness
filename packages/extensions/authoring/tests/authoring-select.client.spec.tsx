@@ -35,15 +35,15 @@ function mount(options: {
       : (): Promise<readonly string[]> => Promise.resolve(modes)
   const props: AuthoringModeSelectProps = {
     sessionId: 's-1',
-    input: { phase: options.phase ?? 'plain', draft: options.draft ?? '' },
+    useInput: (selector: (state: never) => unknown) => selector({ phase: options.phase ?? 'plain', draft: options.draft ?? '' } as never),
     inputActions: { setDraft, submit: () => {} },
     listModes,
     t,
-  } as AuthoringModeSelectProps
+  } as unknown as AuthoringModeSelectProps
   const view = render(<AuthoringModeSelect {...props} />)
   const rerender = (input: { draft?: string; phase?: string }): void => {
     view.rerender(<AuthoringModeSelect
-      {...{ ...props, input: { phase: input.phase ?? options.phase ?? 'plain', draft: input.draft ?? options.draft ?? '' } } as AuthoringModeSelectProps}
+      {...{ ...props, useInput: (selector: (state: never) => unknown) => selector({ phase: input.phase ?? options.phase ?? 'plain', draft: input.draft ?? options.draft ?? '' } as never) } as unknown as AuthoringModeSelectProps}
     />)
   }
   return { view, setDraft, rerender }

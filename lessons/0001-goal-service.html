@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>读懂 GoalService 的两条数据流</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+  <script src="../assets/lesson.js" defer></script>
+</head>
+<body><main>
+  <p class="eyebrow">Lesson 0001 · 约 12 分钟</p>
+  <h1>读懂 GoalService 的两条数据流</h1>
+  <p class="win">完成本课后，你能从一次 <code>create()</code> 追到持久事件和投影，也能解释 Session 恢复后为什么不会擅自自动续行。</p>
+  <nav class="lesson-nav"><a href="#model">领域模型</a><a href="#write">写入线</a><a href="#read">读取线</a><a href="#recovery">恢复</a><a href="../reference/goal-service-cheatsheet.html">速查表</a></nav>
+
+  <h2 id="model">一、先区分 durable 与 runtime</h2>
+  <div class="compare">
+    <div><h3>持久状态</h3><p>objective、phase、revision、Round 上限与已准入轮数来自 Session 事件，进程重启后可恢复。</p></div>
+    <div><h3>运行状态</h3><p>activation 存在 <code>WeakMap&lt;Session, GoalRuntimeState&gt;</code> 中，只表示当前进程是否获准自动续行。</p></div>
+  </div>
+  <p>所以 <code>phase: active</code> 与 <code>activation: armed</code> 是两个判断。前者回答“目标是否仍在推进阶段”，后者回答“这个进程现在能否自动发起下一轮”。</p>
+
+  <h2 id="write">二、沿 create() 走完写入线</h2>
+  <ol class="trace">
+    <li><code>resolveCreateGoal()</code> 清理 objective，并解析默认 Round 上限。</li>
+    <li><code>prepareMutation()</code> 要求传入 registry 中完全相同的 live Agent，并读取当前投影与 runtime。</li>
+    <li>创建新 GoalId、revision 1、phase active 的完整快照。</li>
+    <li><code>commitSnapshot()</code> 构造 version 1 的 <code>goal/change</code> 数据。</li>
+    <li><code>commit()</code> 调用 <code>session.append()</code>；Session 事件监听器同步更新投影和 activation。</li>
+    <li>持久提交成功后才发布 <code>goal/changed</code>，供 driver 等运行中消费者响应。</li>
+  </ol>
+  <pre><code>const goal = ctx.goals.create(agent, {
+  objective: '完成配置迁移并验证',
+  maxGoalRounds: 8,
+})
+
+// 后续更新必须携带精确版本
+const paused = ctx.goals.pause(agent, {
+  id: goal.id,
+  revision: goal.revision,
+})</code></pre>
+  <p class="callout">revision 是 compare-and-set 栅栏。若另一调用方先把 revision 1 更新成 2，仍持有 revision 1 的调用会收到 <code>GOAL_STALE_REVISION</code>，不会覆盖新状态。</p>
+
+  <h2 id="read">三、读取线是投影，不是临时缓存</h2>
+  <p><code>GoalService</code> 启动时向 <code>ctx.sessionProjections</code> 注册 key 为 <code>goal</code> 的 projection unit。它只处理两类事件：</p>
+  <ul><li><code>goal/change</code>：替换 Goal 完整状态或应用 clear tombstone。</li><li>来源为 <code>kind: goal</code> 的 <code>user/message</code>：把 <code>roundsStarted</code> 推进到下一轮。</li></ul>
+  <p><code>ctx.goals.get(agent)</code> 读取当前投影，再附上 runtime activation。普通 inbox 变化、assistant 消息和工具结果不会改变 Goal 投影。</p>
+
+  <h2 id="recovery">四、恢复时为什么 fail closed</h2>
+  <p><code>fold.ts</code> 会重新验证每条 Goal 事件：字段必须精确、revision 必须连续、phase 转换必须合法、Goal ID 不能复用、Round 必须连续且属于当前 revision。发现第一条坏记录后，投影保留最后一个有效客户端视图和 failure；Host 的 Goal 读写则拒绝继续。</p>
+  <p>独立的 invariant companion 更早介入：它在 <code>session/event</code> 发布前用另一份 fold 检查候选事件，非法事件会在提交之前被拒绝。这是一道写入期防线；projection failure 是读取与恢复期防线。</p>
+
+  <section class="quiz">
+    <h2>快速检索练习</h2>
+    <p>Session 恢复后，哪个状态必须由用户再次授权才能从 disarmed 变回 armed？</p>
+    <button onclick="lessonAnswer('q1',false,'答对：activation。','再想想：phase 会从日志恢复。')">持久阶段</button>
+    <button onclick="lessonAnswer('q1',true,'答对：activation。','再想想：phase 会从日志恢复。')">续行权限</button>
+    <p id="q1" class="answer" aria-live="polite"></p>
+  </section>
+
+  <h2>建议直接读的源码</h2>
+  <p>先看 <a href="../packages/goal/goal/src/types.ts">types.ts</a>，再从 <a href="../packages/goal/goal/src/index.ts">GoalService.create()</a> 读到 commit，最后读 <a href="../packages/goal/goal/src/fold.ts">fold.ts</a> 的 <code>applyGoalEvent()</code>。遇到不清楚的细节，直接继续问我并带上方法名或事件序列。</p>
+  <p class="source-line">主要来源：仓库当前源码、Goal README 与对应 Vitest 行为测试。</p>
+</main></body></html>

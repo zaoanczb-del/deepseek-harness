@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Session 历史到聊天窗体速查表</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body><main>
+  <p class="eyebrow">DeepSeek Harness · Reference</p>
+  <h1>Session 历史到聊天窗体</h1>
+  <p class="win">磁盘或 live Session → SessionObservation → follow snapshot/page → SessionEventStream → SessionEventWindow → ConversationNodeAssembler → ChatSnapshot → React renderer。</p>
+  <h2>七个交接点</h2>
+  <table><thead><tr><th>层</th><th>对象</th><th>交付内容</th></tr></thead><tbody>
+    <tr><td>存储</td><td>JSONL persistence / live Session</td><td>连续的 <code>SessionEvent[]</code></td></tr>
+    <tr><td>查询</td><td><code>SessionObservation</code></td><td>固定 cursor 的一致历史 cut</td></tr>
+    <tr><td>Host API</td><td><code>SessionHistoryController</code></td><td>snapshot、page、live event、Assistant frame</td></tr>
+    <tr><td>Client transport</td><td><code>SessionEventStream</code></td><td>replace、prepend、append、assistant-stream</td></tr>
+    <tr><td>Client model</td><td><code>MutableSessionEventSource</code></td><td>带 revision 的连续事件窗口</td></tr>
+    <tr><td>组装</td><td><code>ConversationNodeAssembler</code></td><td>按 Definition 形成 Chat 节点与顺序</td></tr>
+    <tr><td>呈现</td><td><code>ChatView</code> / keyed slot</td><td>用户、助手、工具、错误等 React 组件</td></tr>
+  </tbody></table>
+  <h2>四条更新路径</h2>
+  <ul>
+    <li>首次打开：follow 的 opening snapshot 直接替换整个尾部窗口。</li>
+    <li>加载更早：page 以当前首 seq 为 beforeSeq，结果 prepend。</li>
+    <li>实时追加：连续持久事件 append；Assistant chunk 作为 transient append。</li>
+    <li>断线重连：journal 用 cursor 追赶；无法连续时以尾页 replace 修复。</li>
+  </ul>
+  <h2>Assistant 的两阶段显示</h2>
+  <pre><code>agent/assistant-stream chunk
+  → assistant/live-chunk（Client transient）
+  → Chat 节点增量更新
+
+assistant/message 持久提交
+  → settle-assistant
+  → 删除同 attempt 的 transient
+  → 插入 durable settlement</code></pre>
+  <p class="source-line">来源：<a href="../packages/api/session-controller/src/history.ts">Host history</a> · <a href="../packages/api/session-controller/src/client/transport.ts">Client transport</a> · <a href="../packages/client/ui-conversation/src/client/conversation/assembler.ts">Conversation assembler</a> · <a href="../packages/client/ui-chat/src/client/chat/ChatView.tsx">ChatView</a></p>
+</main></body></html>

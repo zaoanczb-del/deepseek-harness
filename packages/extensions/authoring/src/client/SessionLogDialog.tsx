@@ -70,7 +70,6 @@ export function SessionLogDialog({
                   <span className={css.rowSeq}>{row.seq}</span>
                   <span className={css.rowType} title={row.type}>
                     {row.type}
-                    {row.source === 'chunks' && <span className={css.packed}>{t('log.packed')}</span>}
                   </span>
                   <span className={css.rowData} title={formatSessionLogData(row.data)}>
                     {formatSessionLogData(row.data)}

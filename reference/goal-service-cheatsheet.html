@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>GoalService 速查表</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body><main>
+  <p class="eyebrow">DeepSeek Harness · Reference</p>
+  <h1>GoalService 速查表</h1>
+  <p class="win">一句话：每个 Session 最多一个当前 Goal；持久状态来自 Session 日志，自动续行资格只存在于当前进程。</p>
+
+  <h2>状态的三种表示</h2>
+  <table><thead><tr><th>类型</th><th>包含什么</th><th>用途</th></tr></thead><tbody>
+    <tr><td><code>GoalSnapshot</code></td><td>id、revision、objective、phase、maxGoalRounds</td><td>每次非 clear 变更写入日志的完整快照</td></tr>
+    <tr><td><code>GoalProjection</code></td><td>Snapshot + roundsStarted + 时间</td><td>从持久事件折叠出的当前状态</td></tr>
+    <tr><td><code>GoalView</code></td><td>Projection + activation</td><td>运行中调用者看到的完整视图</td></tr>
+  </tbody></table>
+
+  <h2>生命周期</h2>
+  <pre><code>create → active
+active → pause → paused
+active → block → blocked
+active | paused | blocked → complete
+active | paused | blocked → resume → active
+任何当前状态 → clear → 无当前 Goal</code></pre>
+  <p><code>activation</code> 是独立维度：<code>armed</code> 允许 driver 自动续行，<code>disarmed</code> 不允许；它不写入 Session 日志。</p>
+
+  <h2>一次写入</h2>
+  <div class="flow">
+    <div>公开方法校验 live Agent、ref 和输入</div><div class="arrow">↓</div>
+    <div>构造完整 <code>GoalChangeMeta</code></div><div class="arrow">↓</div>
+    <div><code>session.append('goal/change')</code></div><div class="arrow">↓</div>
+    <div>投影同步折叠事件，activation 与日志序号对齐</div><div class="arrow">↓</div>
+    <div>发布进程内 <code>goal/changed</code></div>
+  </div>
+
+  <h2>三个容易混淆的事实</h2>
+  <ul>
+    <li><code>revision</code> 只由 Goal 变更推进；准入 Round 只推进 <code>roundsStarted</code>。</li>
+    <li><code>clear</code> 的投影是 <code>null</code>，日志中仍保留带下一 revision 的 tombstone。</li>
+    <li>恢复后持久的 <code>phase</code> 可以仍是 active，但 <code>activation</code> 初始为 disarmed。</li>
+  </ul>
+
+  <p class="source-line">来源：<a href="../packages/goal/goal/src/index.ts">GoalService</a> · <a href="../packages/goal/goal/src/fold.ts">strict fold</a> · <a href="../packages/goal/goal/README.zh.md">包说明</a></p>
+</main></body></html>
